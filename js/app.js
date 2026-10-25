@@ -1,6 +1,6 @@
 /**
  * ছড়ার চুম্বক | Bangla Magnetic Word Kit for Kids
- * Simplified, Kid-Friendly Application Controller (js/app.js)
+ * Main Controller with Smart Next-Word Suggestions, Progressive Disclosure & Clear Audio
  */
 
 (function () {
@@ -10,8 +10,8 @@
   const wordMetaMap = new Map();
   DATA.words.forEach(item => wordMetaMap.set(item.w, item));
 
-  // Load custom words from localStorage
   const STORAGE_CUSTOM_WORDS = 'bangla_magnet_custom_words_v1';
+  const STORAGE_SAVED_POEMS = 'bangla_magnet_saved_poems_v1';
   let customWords = [];
   try {
     customWords = JSON.parse(localStorage.getItem(STORAGE_CUSTOM_WORDS) || '[]');
@@ -23,17 +23,26 @@
     customWords = [];
   }
 
-  // App State
+  let savedPoems = [];
+  try {
+    savedPoems = JSON.parse(localStorage.getItem(STORAGE_SAVED_POEMS) || '[]');
+  } catch (e) {
+    savedPoems = [];
+  }
+
+  // App State — defaults to 'smart' (Suggested Next Words)
   const state = {
-    activeCategory: 'popular',
+    activeCategory: 'smart',
+    smartOffset: 0,
     searchQuery: '',
+    activeLetter: '',
     showPhonetics: true,
     autoSpeak: true,
     autoAgree: true,
     boardTheme: 'theme-fridge',
     boardTiles: [],
     selectedTileId: null,
-    inspectorTab: 'verb', // 'verb' | 'noun' | 'rhyme'
+    inspectorTab: 'verb',
     selectedSubject: 'আমি',
     undoStack: [],
     currentCursorLine: 0,
@@ -49,8 +58,14 @@
   const elWordCountBadge = document.getElementById('wordCountBadge');
   const elWordSearchInput = document.getElementById('wordSearchInput');
   const elBtnClearSearch = document.getElementById('btnClearSearch');
+  const elTabSmartDefault = document.getElementById('tabSmartDefault');
+  const elTabEndingsMain = document.getElementById('tabEndingsMain');
+  const elBtnToggleCatDrawer = document.getElementById('btnToggleCatDrawer');
+  const elCollapsibleDrawer = document.getElementById('collapsibleFilterDrawer');
   const elCategoryTabs = document.getElementById('categoryTabs');
-  const elEndingsHelperBanner = document.getElementById('endingsHelperBanner');
+  const elLetterFilterBar = document.getElementById('letterFilterBar');
+  const elTrayContextText = document.getElementById('trayContextText');
+  const elBtnRefreshSmart = document.getElementById('btnRefreshSmart');
 
   const elBoard = document.getElementById('magneticBoard');
   const elBoardLineGuides = document.getElementById('boardLineGuides');
@@ -65,7 +80,7 @@
   const elPoemAuthorInput = document.getElementById('poemAuthorInput');
   const elBtnPlayPoem = document.getElementById('btnPlayPoem');
   const elBtnStopPoem = document.getElementById('btnStopPoem');
-  const elSpeechSpeedSelect = document.getElementById('speechSpeedSelect');
+  const elSpeechModeSelect = document.getElementById('speechModeSelect');
 
   // Inspector DOM
   const elInspectorPlaceholder = document.getElementById('inspectorPlaceholder');
@@ -84,6 +99,8 @@
   const elRhymeResultsGrid = document.getElementById('rhymeResultsGrid');
 
   const CATEGORY_LABELS = {
+    smart: '✨ পরের সম্ভাব্য শব্দ',
+    popular: '🌟 জনপ্রিয় শব্দ',
     pronoun_people: '🙋 মানুষ ও সর্বনাম',
     nature: '🌙 প্রকৃতি ও আকাশ',
     animals: '🦜 পাখি ও প্রাণী',
@@ -91,7 +108,9 @@
     adjectives: '🎨 রং ও বিশেষণ',
     rhythm: '🥁 ছন্দ ও ধ্বনি',
     objects_food: '🏠 জিনিস ও খাবার',
-    endings: '🧩 প্রত্যয়',
+    endings: '🧩 প্রত্যয় (-এ, -ছি, -টা)',
+    custom: '✨ আমার যোগ করা শব্দ',
+    all: '📚 সব শব্দ',
     general: '✨ ছড়ার শব্দ'
   };
 
@@ -115,34 +134,87 @@
   }
 
   function inferCategory(word) {
-    const meta = wordMetaMap.get(word);
+    const clean = (word || '').replace(/[।,!?]/g, '');
+    const meta = wordMetaMap.get(clean);
     if (meta && meta.c) return meta.c;
-    if (Engine.SURFACE_TO_VERB_ROOT[word]) return 'verbs';
-    if (word.endsWith('ছে') || word.endsWith('ছি') || word.endsWith('লাম') || word.endsWith('বো') || word.endsWith('বে')) {
+    if (Engine.SURFACE_TO_VERB_ROOT[clean]) return 'verbs';
+    if (clean.endsWith('ছে') || clean.endsWith('ছি') || clean.endsWith('লাম') || clean.endsWith('বো') || clean.endsWith('বে')) {
       return 'verbs';
     }
     return 'general';
   }
 
+  function syncCategoryTabHighlights() {
+    const cat = state.activeCategory;
+    if (elTabSmartDefault) elTabSmartDefault.classList.toggle('active', cat === 'smart');
+    if (elTabEndingsMain) elTabEndingsMain.classList.toggle('active', cat === 'endings');
+    if (elCategoryTabs) {
+      elCategoryTabs.querySelectorAll('.cat-tab').forEach(b => {
+        b.classList.toggle('active', b.dataset.cat === cat);
+      });
+    }
+    if (elBtnToggleCatDrawer) {
+      const isDrawerCat = (cat !== 'smart' && cat !== 'endings');
+      elBtnToggleCatDrawer.classList.toggle('open', isDrawerCat);
+      elBtnToggleCatDrawer.textContent = isDrawerCat
+        ? `${CATEGORY_LABELS[cat] || '📂 ক্যাটাগরি'} ▾`
+        : '📂 সব ক্যাটাগরি ও বর্ণ ▾';
+    }
+  }
+
   // ==========================================================================
-  // 1. RENDER WORD & ENDING BROWSER (Clean, Big Magnet Tiles)
+  // 1. RENDER WORD & ENDING BROWSER
   // ==========================================================================
   function renderWordBrowser() {
     if (!elWordTray) return;
     elWordTray.innerHTML = '';
+    syncCategoryTabHighlights();
+
     const cat = state.activeCategory;
     const q = state.searchQuery.trim().toLowerCase();
+    const letter = state.activeLetter;
 
-    if (elEndingsHelperBanner) {
-      elEndingsHelperBanner.classList.toggle('hidden', !(cat === 'endings' && !q));
+    // 1. If user is typing in Search Box, search across all words
+    if (q) {
+      const matches = DATA.words.filter(item =>
+        item.w.includes(q) || (item.p && item.p.toLowerCase().includes(q))
+      );
+      if (elWordCountBadge) elWordCountBadge.textContent = `${matches.length}টি`;
+      if (elTrayContextText) elTrayContextText.textContent = `🔍 "${state.searchQuery}" অনুসন্ধানের ফলাফল`;
+      if (elBtnRefreshSmart) elBtnRefreshSmart.classList.add('hidden');
+      renderWordTileList(matches.slice(0, 120));
+      return;
     }
 
-    // Endings tab: show clean, big suffix magnet tiles
-    if (cat === 'endings' && !q) {
+    // 2. SMART NEXT-WORD SUGGESTIONS (Default Mode!)
+    if (cat === 'smart' && !letter) {
+      const smartObj = Engine.getSmartSuggestions(state.boardTiles, state.currentCursorLine, 72);
+      const allSmart = smartObj.words || [];
+      const pageSize = 24;
+      const start = state.smartOffset % Math.max(1, allSmart.length);
+      const page = [];
+      for (let i = 0; i < Math.min(pageSize, allSmart.length); i++) {
+        page.push(allSmart[(start + i) % allSmart.length]);
+      }
+
+      if (elWordCountBadge) elWordCountBadge.textContent = `${page.length}টি`;
+      if (elTrayContextText) elTrayContextText.textContent = smartObj.hint;
+      if (elBtnRefreshSmart) elBtnRefreshSmart.classList.remove('hidden');
+
+      renderWordTileList(page);
+      return;
+    }
+
+    if (elBtnRefreshSmart) elBtnRefreshSmart.classList.add('hidden');
+
+    // 3. ENDINGS TAB
+    if (cat === 'endings' && !letter) {
       const endingsList = DATA.endings || [];
       if (elWordCountBadge) elWordCountBadge.textContent = `${endingsList.length}টি`;
+      if (elTrayContextText) {
+        elTrayContextText.textContent = '🧩 যেকোনো প্রত্যয় (-এ, -ছি, -টা) টেনে বোর্ডের শব্দের ওপর ছাড়লে বা ক্লিক করলে যুক্ত হবে!';
+      }
       const frag = document.createDocumentFragment();
-
       endingsList.forEach(endObj => {
         const tile = document.createElement('div');
         tile.className = 'magnet-tile';
@@ -159,7 +231,6 @@
           </div>
           <button type="button" class="tile-speak-btn" title="উচ্চারণ শোনো">🔊</button>
         `;
-
         setupTrayTileEvents(tile, endObj.text, 'endings', true);
         frag.appendChild(tile);
       });
@@ -167,19 +238,35 @@
       return;
     }
 
-    // Filter words
-    const filtered = DATA.words.filter(item => {
-      if (q) {
-        return item.w.includes(q) || (item.p && item.p.toLowerCase().includes(q));
-      }
-      if (cat === 'popular') return item.pop;
+    // 4. CATEGORY OR LETTER FILTER
+    let filtered = DATA.words.filter(item => {
+      if (cat === 'popular' || cat === 'smart') return item.pop;
+      if (cat === 'custom') return item.isCustom;
       if (cat !== 'all' && item.c !== cat) return false;
       return true;
     });
 
-    if (elWordCountBadge) elWordCountBadge.textContent = `${filtered.length}টি`;
+    if (letter) {
+      const letterMap = {
+        'ই': ['ই', 'ঈ'], 'উ': ['উ', 'ঊ'], 'এ': ['এ', 'ঐ'], 'ও': ['ও', 'ঔ'],
+        'ট': ['ট', 'ঠ'], 'ড': ['ড', 'ঢ'], 'ত': ['ত', 'থ'], 'য': ['য', 'র'], 'শ': ['শ', 'ষ', 'স']
+      };
+      const allowedStarts = letterMap[letter] || [letter];
+      filtered = filtered.filter(item => allowedStarts.some(st => item.w.startsWith(st)));
+    }
 
-    if (filtered.length === 0) {
+    if (elWordCountBadge) elWordCountBadge.textContent = `${filtered.length}টি`;
+    if (elTrayContextText) {
+      const catTitle = CATEGORY_LABELS[cat] || 'শব্দ';
+      const letTitle = letter ? ` • "${letter}" দিয়ে শুরু` : '';
+      elTrayContextText.textContent = `${catTitle}${letTitle} (${filtered.length}টি শব্দ)`;
+    }
+
+    renderWordTileList(filtered.slice(0, 220));
+  }
+
+  function renderWordTileList(list) {
+    if (list.length === 0) {
       elWordTray.innerHTML = `
         <div style="padding: 24px; text-align: center; color: #64748b; width: 100%;">
           <p style="margin-bottom: 10px; font-size: 1rem;">কোনো শব্দ পাওয়া যায়নি</p>
@@ -195,10 +282,8 @@
       return;
     }
 
-    const slice = filtered.slice(0, 260);
     const frag = document.createDocumentFragment();
-
-    slice.forEach(item => {
+    list.forEach(item => {
       const tile = document.createElement('div');
       tile.className = 'magnet-tile';
       tile.dataset.cat = item.c || 'general';
@@ -312,7 +397,6 @@
             });
           }
         } else {
-          // Clicked tile in left tray
           if (isEnding) {
             const targetId = state.selectedTileId || (state.boardTiles.length > 0 ? state.boardTiles[state.boardTiles.length - 1].id : null);
             if (targetId) {
@@ -393,11 +477,12 @@
       x: pos.x,
       y: pos.y,
       lineIdx: pos.lineIdx,
-      tilt: (Math.random() * 2 - 1).toFixed(2)
+      tilt: (Math.random() * 1.8 - 0.9).toFixed(2)
     };
 
     state.boardTiles.push(newTile);
     state.currentCursorLine = pos.lineIdx;
+    state.smartOffset = 0;
 
     if (state.autoAgree && !opts.skipAutoAgree) {
       harmonizeLineSubjectVerb(pos.lineIdx);
@@ -405,6 +490,11 @@
 
     renderBoard();
     renderInspector();
+
+    // Update smart next-word suggestions automatically!
+    if (state.activeCategory === 'smart') {
+      renderWordBrowser();
+    }
 
     if (state.autoSpeak && !opts.silent) {
       Engine.speakWord(newTile.word);
@@ -426,6 +516,7 @@
 
     renderBoard();
     renderInspector();
+    if (state.activeCategory === 'smart') renderWordBrowser();
     showToast(`✨ "${oldWord}" + "-${endingText}" ➔ "${fused}" (${Engine.transliterate(fused)})`);
     if (state.autoSpeak) {
       Engine.speakWord(fused);
@@ -555,6 +646,7 @@
       elBoardTilesLayer.querySelectorAll('.board-tile.selected').forEach(n => n.classList.remove('selected'));
       el.classList.add('selected');
       renderInspector();
+      if (state.activeCategory === 'smart') renderWordBrowser();
 
       const onMove = (me) => {
         const dx = me.clientX - startX;
@@ -601,6 +693,7 @@
           }
           renderBoard();
           renderInspector();
+          if (state.activeCategory === 'smart') renderWordBrowser();
         } else {
           if (state.autoSpeak) {
             Engine.speakWord(tile.word);
@@ -621,10 +714,11 @@
     state.selectedTileId = null;
     renderBoard();
     renderInspector();
+    if (state.activeCategory === 'smart') renderWordBrowser();
   });
 
   // ==========================================================================
-  // 3. INTERACTIVE WORD INSPECTOR (Appears when a tile is clicked)
+  // 3. INTERACTIVE WORD INSPECTOR
   // ==========================================================================
   function renderInspector() {
     const tile = state.boardTiles.find(t => t.id === state.selectedTileId);
@@ -777,11 +871,12 @@
     if (category) tile.category = category;
     renderBoard();
     renderInspector();
+    if (state.activeCategory === 'smart') renderWordBrowser();
     if (state.autoSpeak) Engine.speakWord(newWord);
   }
 
   // ==========================================================================
-  // 4. PLAY POEM ALOUD
+  // 4. PLAY POEM ALOUD (Slow, Clear Word-by-Word or Paced Line Narration!)
   // ==========================================================================
   function getStructuredPoemLinesFromBoard() {
     if (state.boardTiles.length === 0) return [];
@@ -813,21 +908,21 @@
     elBtnStopPoem.classList.remove('hidden');
     elLiveNarrationBar.classList.remove('hidden');
 
-    const rate = parseFloat(elSpeechSpeedSelect.value) || 0.92;
+    const mode = elSpeechModeSelect ? elSpeechModeSelect.value : 'word-by-word';
 
     await Engine.speakPoemLines(lines, {
-      rate,
+      mode,
+      rate: 0.80,
       onLineStart: (idx, lineObj) => {
         elNarrationBn.textContent = lineObj.text;
         elNarrationEn.textContent = lineObj.phonetic;
-
+      },
+      onWordStart: (tile) => {
         elBoardTilesLayer.querySelectorAll('.board-tile').forEach(el => {
           el.classList.remove('speaking-highlight');
         });
-        lineObj.tiles.forEach(t => {
-          const domTile = elBoardTilesLayer.querySelector(`.board-tile[data-id="${t.id}"]`);
-          if (domTile) domTile.classList.add('speaking-highlight');
-        });
+        const domTile = elBoardTilesLayer.querySelector(`.board-tile[data-id="${tile.id}"]`);
+        if (domTile) domTile.classList.add('speaking-highlight');
       },
       onDone: () => stopBoardPoemNarration()
     });
@@ -845,7 +940,7 @@
   }
 
   // ==========================================================================
-  // 5. LOAD POEM TEMPLATES & EXPORT IMAGE
+  // 5. LOAD POEM TEMPLATES, SAVED POEMS & EXPORT IMAGE
   // ==========================================================================
   function loadPoemOntoBoard(poem, mode = 'short') {
     pushUndo();
@@ -885,9 +980,10 @@
       });
     });
 
-    state.currentCursorLine = linesToLoad.length;
+    state.currentCursorLine = Math.max(0, linesToLoad.length - 1);
     renderBoard();
     renderInspector();
+    if (state.activeCategory === 'smart') renderWordBrowser();
   }
 
   function tidyBoardLayout() {
@@ -907,6 +1003,86 @@
     });
     renderBoard();
     showToast('📏 সব শব্দ লাইনে সুন্দর করে সাজানো হয়েছে!');
+  }
+
+  function updateSavedPoemsBadge() {
+    const badge = document.getElementById('savedPoemsCount');
+    if (badge) badge.textContent = String(savedPoems.length);
+  }
+
+  function saveCurrentPoemToStorage() {
+    if (state.boardTiles.length === 0) {
+      showToast('সেভ করার আগে বোর্ডে কিছু শব্দ যোগ করো!');
+      return;
+    }
+    const lines = getStructuredPoemLinesFromBoard();
+    const poemRecord = {
+      id: 'saved_' + Date.now(),
+      title: (elPoemTitleInput && elPoemTitleInput.value.trim()) || 'আমার ছড়া',
+      author: (elPoemAuthorInput && elPoemAuthorInput.value.trim()) || 'খুদে ছড়াকার',
+      createdAt: new Date().toLocaleDateString('bn-BD'),
+      preview: lines.map(l => l.text).join('\n'),
+      tiles: JSON.parse(JSON.stringify(state.boardTiles))
+    };
+    savedPoems.unshift(poemRecord);
+    localStorage.setItem(STORAGE_SAVED_POEMS, JSON.stringify(savedPoems));
+    updateSavedPoemsBadge();
+    showToast(`💾 "${poemRecord.title}" আমার খাতায় সেভ হয়েছে!`);
+  }
+
+  function renderSavedPoemsModal() {
+    const listEl = document.getElementById('savedPoemsList');
+    if (!listEl) return;
+    listEl.innerHTML = '';
+
+    if (savedPoems.length === 0) {
+      listEl.innerHTML = `<p style="color:#64748b; padding: 16px;">তোমার খাতায় এখনো কোনো ছড়া সেভ করা হয়নি। বোর্ডের উপরের <strong>💾 সেভ</strong> বাটনে ক্লিক করে ছড়া সংরক্ষণ করো!</p>`;
+      return;
+    }
+
+    savedPoems.forEach(sp => {
+      const card = document.createElement('div');
+      card.className = 'template-card';
+      card.innerHTML = `
+        <div>
+          <div class="tpl-head">
+            <span class="tpl-icon">📝</span>
+            <div>
+              <div class="tpl-title-bn">${sp.title}</div>
+              <div class="tpl-poet">${sp.createdAt}</div>
+            </div>
+          </div>
+          <div class="tpl-preview-lines" style="margin-top:8px; white-space:pre-line;">${sp.preview}</div>
+        </div>
+        <div class="tpl-actions">
+          <button type="button" class="btn-tpl-load">🧲 বোর্ডে লোড করো</button>
+          <button type="button" class="btn-tpl-speak">🔊 শোনো</button>
+          <button type="button" class="btn-mini btn-mini-danger btn-del-saved" style="flex:0 0 36px;">🗑️</button>
+        </div>
+      `;
+
+      card.querySelector('.btn-tpl-load').addEventListener('click', () => {
+        pushUndo();
+        state.boardTiles = JSON.parse(JSON.stringify(sp.tiles));
+        if (elPoemTitleInput) elPoemTitleInput.value = sp.title;
+        renderBoard();
+        renderInspector();
+        document.getElementById('modalSavedPoems').classList.add('hidden');
+      });
+
+      card.querySelector('.btn-tpl-speak').addEventListener('click', () => {
+        Engine.speakWord(sp.preview.replace(/\n/g, '। '));
+      });
+
+      card.querySelector('.btn-del-saved').addEventListener('click', () => {
+        savedPoems = savedPoems.filter(item => item.id !== sp.id);
+        localStorage.setItem(STORAGE_SAVED_POEMS, JSON.stringify(savedPoems));
+        updateSavedPoemsBadge();
+        renderSavedPoemsModal();
+      });
+
+      listEl.appendChild(card);
+    });
   }
 
   function exportPoemAsImage() {
@@ -1044,7 +1220,7 @@
       });
 
       card.querySelector('.btn-tpl-speak').addEventListener('click', () => {
-        const sampleText = poem.lines.slice(0, 4).map(l => l.words.join(' ')).join('। ');
+        const sampleText = poem.lines.slice(0, 4).map(l => l.words.join(', ')).join('। ');
         Engine.speakWord(sampleText);
       });
 
@@ -1113,13 +1289,125 @@
       renderWordBrowser();
     });
 
-    elCategoryTabs.addEventListener('click', (e) => {
-      const btn = e.target.closest('.cat-tab');
-      if (!btn) return;
-      state.activeCategory = btn.dataset.cat;
-      elCategoryTabs.querySelectorAll('.cat-tab').forEach(b => b.classList.toggle('active', b === btn));
-      renderWordBrowser();
-    });
+    // Primary Mode Bar buttons
+    if (elTabSmartDefault) {
+      elTabSmartDefault.addEventListener('click', () => {
+        state.activeCategory = 'smart';
+        state.activeLetter = '';
+        state.smartOffset = 0;
+        if (elCollapsibleDrawer) elCollapsibleDrawer.classList.add('hidden');
+        renderWordBrowser();
+      });
+    }
+
+    if (elTabEndingsMain) {
+      elTabEndingsMain.addEventListener('click', () => {
+        state.activeCategory = 'endings';
+        state.activeLetter = '';
+        if (elCollapsibleDrawer) elCollapsibleDrawer.classList.add('hidden');
+        renderWordBrowser();
+      });
+    }
+
+    if (elBtnToggleCatDrawer) {
+      elBtnToggleCatDrawer.addEventListener('click', () => {
+        elCollapsibleDrawer.classList.toggle('hidden');
+      });
+    }
+
+    if (elBtnRefreshSmart) {
+      elBtnRefreshSmart.addEventListener('click', () => {
+        state.smartOffset += 18;
+        renderWordBrowser();
+      });
+    }
+
+    // Category drawer tabs
+    if (elCategoryTabs) {
+      elCategoryTabs.addEventListener('click', (e) => {
+        const btn = e.target.closest('.cat-tab');
+        if (!btn) return;
+        state.activeCategory = btn.dataset.cat;
+        if (elCollapsibleDrawer) elCollapsibleDrawer.classList.add('hidden');
+        renderWordBrowser();
+      });
+    }
+
+    // Alphabet filter inside drawer
+    if (elLetterFilterBar) {
+      elLetterFilterBar.addEventListener('click', (e) => {
+        const btn = e.target.closest('.letter-btn');
+        if (!btn) return;
+        state.activeLetter = btn.dataset.letter || '';
+        if (state.activeCategory === 'smart' || state.activeCategory === 'endings') {
+          state.activeCategory = 'all';
+        }
+        elLetterFilterBar.querySelectorAll('.letter-btn').forEach(b => b.classList.toggle('active', b === btn));
+        if (elCollapsibleDrawer) elCollapsibleDrawer.classList.add('hidden');
+        renderWordBrowser();
+      });
+    }
+
+    // Top "More Options" dropdown menu
+    const btnMoreMenu = document.getElementById('btnToggleMoreMenu');
+    const elMoreDropdown = document.getElementById('moreOptionsDropdown');
+    if (btnMoreMenu && elMoreDropdown) {
+      btnMoreMenu.addEventListener('click', (e) => {
+        e.stopPropagation();
+        elMoreDropdown.classList.toggle('hidden');
+      });
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.more-menu-wrap')) {
+          elMoreDropdown.classList.add('hidden');
+        }
+      });
+    }
+
+    // Dropdown Options
+    const btnPhon = document.getElementById('btnTogglePhonetics');
+    if (btnPhon) {
+      btnPhon.addEventListener('click', () => {
+        state.showPhonetics = !state.showPhonetics;
+        document.body.classList.toggle('show-phonetics', state.showPhonetics);
+        btnPhon.classList.toggle('active', state.showPhonetics);
+        btnPhon.querySelector('.status-pill').textContent = state.showPhonetics ? 'ON' : 'OFF';
+        renderBoard();
+      });
+    }
+
+    const btnAutoSpeak = document.getElementById('btnToggleAutoSpeak');
+    if (btnAutoSpeak) {
+      btnAutoSpeak.addEventListener('click', () => {
+        state.autoSpeak = !state.autoSpeak;
+        btnAutoSpeak.classList.toggle('active', state.autoSpeak);
+        btnAutoSpeak.querySelector('.status-pill').textContent = state.autoSpeak ? 'ON' : 'OFF';
+      });
+    }
+
+    const btnAutoAgree = document.getElementById('btnToggleAutoAgree');
+    if (btnAutoAgree) {
+      btnAutoAgree.addEventListener('click', () => {
+        state.autoAgree = !state.autoAgree;
+        btnAutoAgree.classList.toggle('active', state.autoAgree);
+        btnAutoAgree.querySelector('.status-pill').textContent = state.autoAgree ? 'ON' : 'OFF';
+      });
+    }
+
+    const btnAgreeAll = document.getElementById('btnAutoAgreeAll');
+    if (btnAgreeAll) {
+      btnAgreeAll.addEventListener('click', () => {
+        pushUndo();
+        const maxL = state.boardTiles.reduce((m, t) => Math.max(m, t.lineIdx || 0), 0);
+        let changed = false;
+        for (let l = 0; l <= maxL; l++) {
+          if (harmonizeLineSubjectVerb(l)) changed = true;
+        }
+        renderBoard();
+        renderInspector();
+        if (!changed) showToast('🤝 সব লাইনের কর্তা ও ক্রিয়া ইতিমধ্যে মিল আছে!');
+        if (elMoreDropdown) elMoreDropdown.classList.add('hidden');
+      });
+    }
 
     document.querySelectorAll('.sym-tile').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1136,19 +1424,10 @@
 
     document.getElementById('btnNewLine').addEventListener('click', () => {
       state.currentCursorLine += 1;
+      state.smartOffset = 0;
+      if (state.activeCategory === 'smart') renderWordBrowser();
       showToast(`↵ নতুন লাইন (${state.currentCursorLine + 1} নং লাইন)`);
     });
-
-    const btnPhon = document.getElementById('btnTogglePhonetics');
-    if (btnPhon) {
-      btnPhon.addEventListener('click', () => {
-        state.showPhonetics = !state.showPhonetics;
-        document.body.classList.toggle('show-phonetics', state.showPhonetics);
-        btnPhon.classList.toggle('active', state.showPhonetics);
-        btnPhon.querySelector('strong').textContent = state.showPhonetics ? 'ON' : 'OFF';
-        renderBoard();
-      });
-    }
 
     elBtnPlayPoem.addEventListener('click', playBoardPoemAloud);
     elBtnStopPoem.addEventListener('click', stopBoardPoemNarration);
@@ -1164,6 +1443,7 @@
     });
 
     document.getElementById('btnTidyBoard').addEventListener('click', tidyBoardLayout);
+    document.getElementById('btnSavePoem').addEventListener('click', saveCurrentPoemToStorage);
 
     document.getElementById('btnUndo').addEventListener('click', () => {
       if (state.undoStack.length === 0) return;
@@ -1171,9 +1451,13 @@
       state.selectedTileId = null;
       renderBoard();
       renderInspector();
+      if (state.activeCategory === 'smart') renderWordBrowser();
     });
 
-    document.getElementById('btnExportImage').addEventListener('click', exportPoemAsImage);
+    document.getElementById('btnExportImage').addEventListener('click', () => {
+      if (elMoreDropdown) elMoreDropdown.classList.add('hidden');
+      exportPoemAsImage();
+    });
 
     document.getElementById('btnClearBoard').addEventListener('click', () => {
       if (state.boardTiles.length === 0) return;
@@ -1184,6 +1468,7 @@
       state.currentCursorLine = 0;
       renderBoard();
       renderInspector();
+      if (state.activeCategory === 'smart') renderWordBrowser();
     });
 
     document.getElementById('btnEmptyLoadSample').addEventListener('click', () => {
@@ -1212,6 +1497,7 @@
       state.selectedTileId = null;
       renderBoard();
       renderInspector();
+      if (state.activeCategory === 'smart') renderWordBrowser();
     });
 
     document.getElementById('btnInspClose').addEventListener('click', () => {
@@ -1264,6 +1550,14 @@
 
     document.getElementById('btnOpenAddWord').addEventListener('click', () => openAddWordModal(''));
 
+    const btnSaved = document.getElementById('btnOpenSavedPoems');
+    if (btnSaved) {
+      btnSaved.addEventListener('click', () => {
+        renderSavedPoemsModal();
+        document.getElementById('modalSavedPoems').classList.remove('hidden');
+      });
+    }
+
     document.querySelectorAll('.btn-close-modal').forEach(btn => {
       btn.addEventListener('click', () => {
         const targetId = btn.dataset.close;
@@ -1312,7 +1606,7 @@
   }
 
   function init() {
-    renderWordBrowser();
+    updateSavedPoemsBadge();
     bindEvents();
 
     if (DATA.poems && DATA.poems.length > 0) {
@@ -1321,6 +1615,7 @@
       renderBoard();
       renderInspector();
     }
+    renderWordBrowser();
   }
 
   if (document.readyState === 'loading') {

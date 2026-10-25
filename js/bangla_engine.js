@@ -1,5 +1,5 @@
 /**
- * Bangla Linguistic, Morphology, Phonetics, Rhyme & TTS Engine
+ * Bangla Linguistic, Morphology, Smart Suggestions, Phonetics, Rhyme & TTS Engine
  * For Bangla Magnetic Word Kit (ছড়ার চুম্বক)
  */
 
@@ -29,15 +29,15 @@
     'ড়': 'r', 'ঢ়': 'rh', 'য়': 'y', 'ৎ': 't'
   };
 
-  // Build fast lookup map from BANGLA_KIT_DATA
   const phoneticCache = new Map();
+  const wordObjMap = new Map();
   if (window.BANGLA_KIT_DATA && window.BANGLA_KIT_DATA.words) {
     for (const item of window.BANGLA_KIT_DATA.words) {
       phoneticCache.set(item.w, item.p);
+      wordObjMap.set(item.w, item);
     }
   }
 
-  // Extra phonetic overrides for conjugated forms and pronouns
   const EXTRA_PHONETICS = {
     'আমি': 'ami', 'আমরা': 'amra', 'তুমি': 'tumi', 'তোমরা': 'tomra',
     'তুই': 'tui', 'তোরা': 'tora', 'সে': 'she', 'তারা': 'tara',
@@ -219,10 +219,6 @@
     return Boolean(KARS[last] || VOWELS[last]);
   }
 
-  /**
-   * Smart Bangla Morphology Joiner: fuses a base word and a suffix/ending magnet
-   * e.g., মাছ + এ = মাছে, বুন + এছি = বুনেছি, বেঁধে + ছে = বেঁধেছে, চাঁদ + র = চাঁদের
-   */
   function joinWordAndEnding(baseWord, rawEnding) {
     if (!baseWord) return rawEnding || '';
     if (!rawEnding) return baseWord;
@@ -230,7 +226,6 @@
     let ending = rawEnding.trim().replace(/^-+/, '');
     if (!ending) return base;
 
-    // Special pronoun bases
     if (base === 'আমি' && (ending === 'র' || ending === 'এর')) return 'আমার';
     if (base === 'আমি' && ending === 'দের') return 'আমাদের';
     if (base === 'আমি' && ending === 'কে') return 'আমাকে';
@@ -241,7 +236,6 @@
     if (base === 'সে' && (ending === 'র' || ending === 'এর')) return 'তার';
     if (base === 'সে' && ending === 'কে') return 'তাকে';
 
-    // Strip trailing hasanta if present on base
     if (base.endsWith('্')) {
       base = base.slice(0, -1);
     }
@@ -249,60 +243,32 @@
     const baseEndsVowel = endsWithVowelOrKar(base);
     const firstChar = ending[0];
 
-    // Possessive '-র' on a consonant-ending word becomes '-এর' (ের)
-    if (ending === 'র' && !baseEndsVowel) {
-      return base + 'ের';
-    }
-    // '-রা' plural on consonant-ending word often takes '-এরা' (যেমন মাছ + রা = মাছেরা, ছেলেরা)
-    if (ending === 'রা' && !baseEndsVowel) {
-      return base + 'েরা';
-    }
-    // '-য়' on a consonant-ending word becomes '-এ' (ে)
-    if (ending === 'য়' && !baseEndsVowel) {
-      return base + 'ে';
-    }
+    if (ending === 'র' && !baseEndsVowel) return base + 'ের';
+    if (ending === 'রা' && !baseEndsVowel) return base + 'েরা';
+    if (ending === 'য়' && !baseEndsVowel) return base + 'ে';
 
-    // If ending starts with an independent vowel (অ, আ, ই, ঈ, উ, ঊ, ঋ, এ, ঐ, ও, ঔ)
     if (VOWELS[firstChar]) {
       const rest = ending.slice(1);
       if (!baseEndsVowel) {
-        // Convert leading vowel to Kar (or inherent vowel for 'অ')
         const kar = VOWEL_TO_KAR[firstChar] || '';
         return base + kar + rest;
       } else {
-        // Base already ends in a vowel or kar
         const lastChar = base[base.length - 1];
-        // e.g. পা + এ = পায়ে, মা + এ = মায়ে, খা + এ = খেয়ে, কিন্তু চা + ই = চাই, না + ই = নাই
         if (ending === 'এ' && (lastChar === 'া' || lastChar === 'ো' || lastChar === 'ু' || VOWELS[lastChar])) {
           return base + 'য়ে';
         }
-        if (ending === 'এর' && (lastChar === 'া' || lastChar === 'ো')) {
+        if (ending === 'এর' && (lastChar === 'া' || lastChar === 'ো' || lastChar === 'ি' || lastChar === 'ী' || lastChar === 'ে')) {
           return base + 'র';
         }
-        if (ending === 'এর' && (lastChar === 'ি' || lastChar === 'ী' || lastChar === 'ে')) {
-          return base + 'র';
-        }
-        // If base ends in 'ে' and ending starts with 'এ' (e.g., বেঁধে + এছি -> বেঁধেছি)
-        if (lastChar === 'ে' && firstChar === 'এ') {
-          return base + rest;
-        }
-        // If base ends in 'া' and ending starts with 'আ' (e.g., দাঁড়া + আয় -> দাঁড়ায়)
-        if (lastChar === 'া' && firstChar === 'আ') {
-          return base + rest;
-        }
+        if (lastChar === 'ে' && firstChar === 'এ') return base + rest;
+        if (lastChar === 'া' && firstChar === 'আ') return base + rest;
         return base + ending;
       }
     }
 
-    // Ending starts with a consonant (ছে, ছি, ছো, ছিলাম, তে, টা, টি, গুলো, দের, লাম, লে, বো, বে...)
-    // Special case: verb root ending in consonant + 'ছে'/'ছি'/'ছো'/'ছিলাম' in Present Perfect vs Continuous
     return base + ending;
   }
 
-  /**
-   * Irregular & High-Frequency Verb Conjugation Table
-   * Keys are canonical roots (ধাতু)
-   */
   const IRREGULAR_VERBS = {
     'যা': {
       label: 'যাওয়া (to go)',
@@ -376,7 +342,6 @@
     }
   };
 
-  // Map common surface forms back to their canonical verb root
   const SURFACE_TO_VERB_ROOT = {
     'যাই': 'যা', 'যাও': 'যা', 'যাস': 'যা', 'যায়': 'যা', 'যান': 'যা', 'যাচ্ছি': 'যা', 'যাচ্ছ': 'যা', 'যাচ্ছে': 'যা', 'গেল': 'যা', 'গেলেম': 'যা', 'গেলাম': 'যা', 'গেছ': 'যা', 'গেছে': 'যা', 'গিয়ে': 'যা', 'যাব': 'যা', 'যাবে': 'যা', 'যেতে': 'যা',
     'আয়': 'আস', 'আয়রে': 'আস', 'আসি': 'আস', 'এসো': 'আস', 'এস': 'আস', 'আসে': 'আস', 'এল': 'আস', 'এলেম': 'আস', 'আসলো': 'আস', 'আসিব': 'আস', 'আসিতেছে': 'আস', 'আসতেছে': 'আস', 'এসে': 'আস', 'এলি': 'আস',
@@ -415,10 +380,6 @@
     'পাই': 'পা', 'পায়': 'পা', 'পাবে': 'পা', 'পেলাম': 'পা', 'পেল': 'পা', 'পেয়েছ': 'পা'
   };
 
-  /**
-   * Computes high-vowel (সমাপিকা/অসমাপিকা ই/এ কার) mutated stem for regular Bangla verbs
-   * e.g., কর -> করে, বল -> বলে, দেখ -> দেখে, শুন -> শুনে, উঠ -> উঠে, বাঁধ -> বেঁধে, নাম -> নেমে, কাট -> কেটে, ছাড় -> ছেড়ে, মার -> মেরে, লাগ -> লেগে, ভাস -> ভেসে, হাস -> হেসে
-   */
   const PERFECT_STEM_MAP = {
     'বাঁধ': 'বেঁধে', 'নাম': 'নেমে', 'কাট': 'কেটে', 'ছাড়': 'ছেড়ে',
     'মার': 'মেরে', 'লাগ': 'লেগে', 'ভাস': 'ভেসে', 'হাস': 'হেসে',
@@ -431,10 +392,7 @@
   function getPerfectStem(root) {
     if (PERFECT_STEM_MAP[root]) return PERFECT_STEM_MAP[root];
     if (endsWithVowelOrKar(root)) {
-      if (root.endsWith('া')) {
-        // e.g. ঘুমা -> ঘুমিয়ে, দাঁড়া -> দাঁড়িয়ে, বেড়া -> বেড়িয়ে
-        return root.slice(0, -1) + 'িয়ে';
-      }
+      if (root.endsWith('া')) return root.slice(0, -1) + 'িয়ে';
       return root + 'য়ে';
     }
     return root + 'ে';
@@ -448,7 +406,6 @@
       return { root, ...IRREGULAR_VERBS[root] };
     }
 
-    // Check if root ends in 'া' (causative / 2-syllable like ঘুমা, দাঁড়া, বেড়া, সাঁতরা, পালা, বানা, ফোটা)
     if (root.endsWith('া')) {
       const stemIye = root.slice(0, -1) + 'িয়ে';
       return {
@@ -464,7 +421,6 @@
       };
     }
 
-    // Regular consonant-ending root (e.g., কর, চল, বল, দেখ, শুন, উঠ, উড়, ছুট, পড়, খেল, বুন, নাচ, হাস, ভাস, ডুব, ভালোবাস)
     let base = root;
     if (base.endsWith('ে') && base.length > 2) {
       base = base.slice(0, -1);
@@ -484,14 +440,9 @@
     };
   }
 
-  /**
-   * Generates Noun / Pronoun / Adjective inflected forms (বচন ও বিভক্তি)
-   */
   function getNounInflections(word) {
     const w = (word || '').trim();
     if (!w) return [];
-
-    // Strip common endings to find a clean noun base if already inflected
     let base = w;
     for (const suf of ['গুলোতে', 'গুলোয়', 'গুলো', 'গুলি', 'দের', 'খানা', 'খানি', 'টাতে', 'টায়', 'টা', 'টিতে', 'টি', 'েতে', 'তে']) {
       if (base.length > suf.length + 1 && base.endsWith(suf)) {
@@ -501,21 +452,20 @@
     }
 
     const forms = [
-      { label: 'মূল শব্দ (Base)', word: base, ending: '' },
-      { label: 'নির্দেশক (-টি / -টা)', word: joinWordAndEnding(base, 'টি'), ending: 'টি' },
-      { label: 'নির্দেশক (-টা)', word: joinWordAndEnding(base, 'টা'), ending: 'টা' },
-      { label: 'বহুবচন (-গুলো)', word: joinWordAndEnding(base, 'গুলো'), ending: 'গুলো' },
-      { label: 'বহুবচন (-গুলি)', word: joinWordAndEnding(base, 'গুলি'), ending: 'গুলি' },
-      { label: 'এ / য় বিভক্তি (Locative)', word: endsWithVowelOrKar(base) ? joinWordAndEnding(base, 'য়') : joinWordAndEnding(base, 'এ'), ending: endsWithVowelOrKar(base) ? 'য়' : 'এ' },
-      { label: 'তে বিভক্তি (In/At)', word: joinWordAndEnding(base, 'তে'), ending: 'তে' },
-      { label: 'র / এর বিভক্তি (Of/Possessive)', word: joinWordAndEnding(base, 'র'), ending: 'র' },
-      { label: 'দের বিভক্তি (Plural Of)', word: joinWordAndEnding(base, 'দের'), ending: 'দের' },
-      { label: 'কে বিভক্তি (To/Object)', word: joinWordAndEnding(base, 'কে'), ending: 'কে' },
-      { label: 'জোর (-ই)', word: joinWordAndEnding(base, 'ই'), ending: 'ই' },
-      { label: 'আরও (-ও)', word: joinWordAndEnding(base, 'ও'), ending: 'ও' }
+      { label: 'মূল শব্দ', word: base, ending: '' },
+      { label: '+টি', word: joinWordAndEnding(base, 'টি'), ending: 'টি' },
+      { label: '+টা', word: joinWordAndEnding(base, 'টা'), ending: 'টা' },
+      { label: '+গুলো', word: joinWordAndEnding(base, 'গুলো'), ending: 'গুলো' },
+      { label: '+গুলি', word: joinWordAndEnding(base, 'গুলি'), ending: 'গুলি' },
+      { label: '+এ / য়', word: endsWithVowelOrKar(base) ? joinWordAndEnding(base, 'য়') : joinWordAndEnding(base, 'এ'), ending: endsWithVowelOrKar(base) ? 'য়' : 'এ' },
+      { label: '+তে', word: joinWordAndEnding(base, 'তে'), ending: 'তে' },
+      { label: '+র / এর', word: joinWordAndEnding(base, 'র'), ending: 'র' },
+      { label: '+দের', word: joinWordAndEnding(base, 'দের'), ending: 'দের' },
+      { label: '+কে', word: joinWordAndEnding(base, 'কে'), ending: 'কে' },
+      { label: '+ই', word: joinWordAndEnding(base, 'ই'), ending: 'ই' },
+      { label: '+ও', word: joinWordAndEnding(base, 'ও'), ending: 'ও' }
     ];
 
-    // Deduplicate by word
     const seen = new Set();
     return forms.filter(f => {
       if (seen.has(f.word)) return false;
@@ -524,10 +474,6 @@
     });
   }
 
-  /**
-   * Detects the grammatical subject person on a line of words
-   * Returns: 'আমি' | 'তুমি' | 'তুই' | 'আপনি' | 'সে' | null
-   */
   function detectLineSubject(lineWords) {
     if (!Array.isArray(lineWords)) return null;
     for (const raw of lineWords) {
@@ -538,7 +484,6 @@
       if (['আপনি', 'আপনারা', 'তিনি', 'তাঁরা'].includes(w)) return 'আপনি';
       if (['সে', 'তারা', 'ও', 'ওরা', 'এ', 'এরা', 'যে', 'যারা', 'কে', 'কারা'].includes(w)) return 'সে';
     }
-    // Check if there is a clear animate/noun subject on the line
     for (const raw of lineWords) {
       const w = (raw || '').trim();
       if (['খোকা', 'খোকন', 'ছেলে', 'মেয়ে', 'পাখি', 'চাঁদ', 'সূর্য', 'বৃষ্টি', 'নদী', 'ট্রেন', 'কুকুর', 'বেড়াল', 'মাছ', 'মৌমাছি', 'পিপীলিকা'].includes(w)) {
@@ -548,9 +493,6 @@
     return null;
   }
 
-  /**
-   * Detects which tense a verb surface word is currently in, and returns the conjugated form for `targetSubject`
-   */
   function agreeVerbWithSubject(verbWord, targetSubject) {
     if (!verbWord || !targetSubject) return verbWord;
     const conj = conjugateVerb(verbWord);
@@ -561,9 +503,7 @@
         return map[targetSubject] || verbWord;
       }
     }
-    // Heuristic fallback based on suffix of verbWord
     if (verbWord.endsWith('ছি') || verbWord.endsWith('ছো') || verbWord.endsWith('ছ') || verbWord.endsWith('ছে') || verbWord.endsWith('ছেন')) {
-      // Check if perfect stem
       if (verbWord.startsWith(getPerfectStem(conj.root).slice(0, -1))) {
         return conj.perf[targetSubject] || verbWord;
       }
@@ -578,13 +518,9 @@
     return conj.pres[targetSubject] || verbWord;
   }
 
-  /**
-   * Rhyme Finder (ছন্দ মেলাও): finds rhyming Bangla words based on phonetic & orthographic endings
-   */
   function getRhymeKeys(word) {
     const w = (word || '').trim().replace(/[।,!?"'“”]/g, '');
     const p = transliterate(w);
-    // Extract last vowel+consonant+vowel pattern in phonetic string
     const m = p.match(/[aeiou]+[bcdfghjklmnpqrstvwxyz]+[aeiou]*$/i) || p.match(/[aeiou]+[bcdfghjklmnpqrstvwxyz]*[aeiou]*$/i);
     const phonKey = m ? m[0].toLowerCase() : p.slice(-2).toLowerCase();
     const bnTail3 = w.slice(-3);
@@ -609,21 +545,17 @@
       const cand = getRhymeKeys(candW);
       let score = 0;
 
-      // Exact last 3 Bangla chars match (e.g., বেঁধেছে / নেমেছে / দেখেছে -> েছে)
       if (target.w.length >= 3 && candW.length >= 3 && cand.bnTail3 === target.bnTail3) {
         score += 35;
       }
-      // Exact last 2 Bangla chars match (e.g., মামা/জামা, টিয়ে/দিয়ে, টুপুর/টাপুর, ভালো/আলো)
       if (target.w.length >= 2 && cand.bnTail2 === target.bnTail2) {
         score += 50;
       }
-      // Exact phonetic rhyme tail match (e.g. বান/দান/গান -> 'an', চাঁদ/ফাঁদ -> 'and')
       if (target.phonKey.length >= 2 && cand.phonKey === target.phonKey) {
         score += 45;
       } else if (target.phonKey.length >= 2 && cand.p.endsWith(target.phonKey)) {
         score += 35;
       }
-      // Last Bangla char + same length
       if (cand.bnTail1 === target.bnTail1 && KARS[target.bnTail1]) {
         score += 18;
       }
@@ -646,9 +578,129 @@
   }
 
   /**
-   * Bangla Audio Pronunciation Engine (Word & Full Poem TTS)
-   * Uses native bn-BD / bn-IN SpeechSynthesis when available, with automatic
-   * Cloud Bangla TTS Audio fallback + Phonetic SpeechSynthesis backup.
+   * SMART NEXT-WORD SUGGESTIONS (পরের সম্ভাব্য শব্দ)
+   * Uses bigram transitions from bangla_choRar_shobdo.xlsx + Bangla grammar + Rhymes
+   */
+  function getSmartSuggestions(boardTiles, currentLineIdx, limit = 28) {
+    const DATA = window.BANGLA_KIT_DATA || { words: [], bigrams: {}, starters: [] };
+    const bigrams = DATA.bigrams || {};
+    const resultWords = [];
+    const seen = new Set();
+
+    function addCandidate(w, fallbackCat = 'general') {
+      const clean = (w || '').trim().replace(/[।,!?]/g, '');
+      if (!clean || seen.has(clean)) return;
+      seen.add(clean);
+      const existing = wordObjMap.get(clean);
+      if (existing) {
+        resultWords.push(existing);
+      } else {
+        resultWords.push({
+          w: clean,
+          p: transliterate(clean),
+          c: SURFACE_TO_VERB_ROOT[clean] ? 'verbs' : fallbackCat,
+          pop: true
+        });
+      }
+    }
+
+    // Find tiles on the active line (or the last non-empty line)
+    let activeLineTiles = (boardTiles || [])
+      .filter(t => t.lineIdx === currentLineIdx)
+      .sort((a, b) => a.x - b.x);
+
+    // Check previous line for rhyme suggestions
+    let prevLineLastWord = null;
+    if (currentLineIdx > 0) {
+      const prevTiles = (boardTiles || [])
+        .filter(t => t.lineIdx === currentLineIdx - 1)
+        .sort((a, b) => a.x - b.x);
+      if (prevTiles.length > 0) {
+        prevLineLastWord = prevTiles[prevTiles.length - 1].word;
+      }
+    }
+
+    let contextHint = '✨ ছড়া শুরু করার জনপ্রিয় শব্দ (Popular Starter Words)';
+
+    // CASE 1: Current line is empty -> Suggest Line Starters + Pronouns + Nature
+    if (activeLineTiles.length === 0) {
+      const topStarters = [
+        'আমি', 'তুমি', 'সে', 'আমরা', 'চাঁদ', 'বৃষ্টি', 'খোকা', 'পাখি', 'আকাশ',
+        'সকাল', 'নদী', 'ফুল', 'আয়', 'নোটন', 'ছোট', 'এক', 'ওই', 'তাই',
+        'রাত', 'মেঘ', 'হাওয়া', 'গাছ', 'তালগাছ', 'মৌমাছি', 'ট্রেন', 'খুশি', 'ভালো', 'আজ'
+      ];
+      topStarters.forEach(w => addCandidate(w));
+      (DATA.starters || []).forEach(w => addCandidate(w));
+
+      if (prevLineLastWord) {
+        contextHint = `✨ নতুন লাইনের শব্দ (আগের লাইনের শেষ শব্দ: "${prevLineLastWord}")`;
+        const rhymes = findRhymes(prevLineLastWord, DATA.words, 8);
+        rhymes.forEach(r => addCandidate(r.word, r.category));
+      }
+    } else {
+      // CASE 2: Current line has words -> Predict what comes after `lastTile`!
+      const lastTile = activeLineTiles[activeLineTiles.length - 1];
+      const lastW = lastTile.word.replace(/[।,!?]/g, '');
+      const baseW = lastTile.baseWord || lastW;
+      const lineWords = activeLineTiles.map(t => t.word);
+      const lineSubj = detectLineSubject(lineWords) || 'সে';
+
+      contextHint = `✨ "${lastW}"-এর পরের সম্ভাব্য শব্দ (Suggested next words after "${lastW}")`;
+
+      // 1. Direct Bigram transitions from bangla_choRar_shobdo.xlsx
+      if (bigrams[lastW]) {
+        bigrams[lastW].forEach(nextW => addCandidate(nextW));
+      }
+      if (bigrams[baseW]) {
+        bigrams[baseW].forEach(nextW => addCandidate(nextW));
+      }
+
+      // 2. Grammar-based next word predictions
+      const lastCat = lastTile.category || (wordObjMap.get(lastW) && wordObjMap.get(lastW).c) || 'general';
+
+      if (lastCat === 'pronoun_people') {
+        // After a person/pronoun, suggest poetic places/objects AND subject-agreed verbs!
+        ['আকাশে', 'বনে', 'ঘরে', 'মাঠে', 'মনে', 'গান', 'ফুল', 'চাঁদ', 'সকালে', 'ভালো', 'খুশি', 'সাথে'].forEach(w => addCandidate(w));
+        const commonVerbRoots = ['যা', 'আস', 'দেখ', 'বল', 'কর', 'গা', 'খেল', 'হাস', 'চল', 'উঠ', 'হ', 'ভালবাস'];
+        commonVerbRoots.forEach(vRoot => {
+          const conj = conjugateVerb(vRoot);
+          if (conj.pres[lineSubj]) addCandidate(conj.pres[lineSubj], 'verbs');
+          if (conj.fut[lineSubj]) addCandidate(conj.fut[lineSubj], 'verbs');
+        });
+      } else if (lastCat === 'adjectives') {
+        // After an adjective, suggest nouns!
+        ['পাখি', 'ফুল', 'চাঁদ', 'আকাশ', 'মেঘ', 'নদী', 'গাছ', 'দেশ', 'ছেলে', 'মেয়ে', 'গান', 'কথা', 'বাড়ি', 'মাছ', 'ঘোড়া'].forEach(w => addCandidate(w, 'nature'));
+      } else if (lastCat === 'nature' || lastCat === 'animals' || lastCat === 'objects_food') {
+        // After a noun/nature/animal word, suggest descriptive words, locatives, and verbs agreed with subject!
+        ['পড়ে', 'আসে', 'হাসে', 'ওড়ে', 'ডাকে', 'নাচে', 'চলে', 'যায়', 'দেয়', 'খায়', 'আছে', 'ছিল', 'ভরা', 'আলো', 'মামা', 'গুলি'].forEach(v => {
+          const agreed = lineSubj !== 'সে' ? agreeVerbWithSubject(v, lineSubj) : v;
+          addCandidate(agreed);
+        });
+      } else if (lastCat === 'verbs') {
+        // After a verb, suggest rhyme words, particles, or complementary words
+        ['রে', 'গো', 'না', 'তো', 'আজ', 'এখন', 'খুব', 'ভালো', 'মনে', 'আবার'].forEach(w => addCandidate(w));
+      }
+
+      // 3. If on line >= 1, also offer words that rhyme with the previous line's ending word!
+      if (prevLineLastWord && activeLineTiles.length >= 2) {
+        const rhymes = findRhymes(prevLineLastWord, DATA.words, 10);
+        rhymes.forEach(r => addCandidate(r.word, r.category));
+      }
+
+      // 4. Fill remaining slots with top popular words
+      DATA.words.filter(x => x.pop).forEach(x => addCandidate(x.w, x.c));
+    }
+
+    return {
+      hint: contextHint,
+      words: resultWords.slice(0, limit)
+    };
+  }
+
+  /**
+   * BANGLA AUDIO PRONUNCIATION ENGINE (Fixed & Paced for Kids!)
+   * Works with `<meta name="referrer" content="no-referrer">` in index.html so
+   * `translate.googleapis.com/translate_tts?tl=bn&client=gtx` returns HTTP 200 native Bangla audio!
    */
   let activeAudio = null;
   let stopRequested = false;
@@ -663,14 +715,11 @@
 
   if ('speechSynthesis' in window) {
     loadVoices();
-    window.speechSynthesis.onvoiceschanged = () => {
-      loadVoices();
-    };
+    window.speechSynthesis.onvoiceschanged = () => loadVoices();
   }
 
   function getBanglaVoice() {
     const voices = loadVoices();
-    // Prefer natural/neural bn-BD or bn-IN voices
     const bnVoices = voices.filter(v =>
       v.lang && (v.lang.toLowerCase().startsWith('bn') || v.name.toLowerCase().includes('bengali') || v.name.toLowerCase().includes('bangla'))
     );
@@ -681,11 +730,6 @@
     return null;
   }
 
-  function getHindiOrIndicVoice() {
-    const voices = loadVoices();
-    return voices.find(v => v.lang && (v.lang.toLowerCase().startsWith('hi') || v.lang.toLowerCase().startsWith('as') || v.lang.toLowerCase().startsWith('or'))) || null;
-  }
-
   function stopSpeaking() {
     stopRequested = true;
     if ('speechSynthesis' in window) {
@@ -694,19 +738,19 @@
     if (activeAudio) {
       try {
         activeAudio.pause();
-        activeAudio.currentTime = 0;
+        activeAudio.src = '';
       } catch (e) {}
       activeAudio = null;
     }
   }
 
   /**
-   * Speaks a single Bangla text string (word or line) and returns a Promise that resolves when done
+   * Speaks a single Bangla word or short phrase clearly at kid-friendly speed
    */
   function speakSegment(text, options = {}) {
     const cleanText = (text || '').trim();
     if (!cleanText) return Promise.resolve();
-    const rate = options.rate || 0.92;
+    const rate = options.rate || 0.82; // Slower default rate so kids can hear every syllable
 
     return new Promise((resolve) => {
       let settled = false;
@@ -719,133 +763,158 @@
 
       const bnVoice = getBanglaVoice();
 
-      // Strategy 1: Native Bangla SpeechSynthesis Voice (e.g. Edge/Chrome/Android/Mac bn-BD or bn-IN)
-      if (bnVoice && !options.forceCloud) {
+      // 1. Native Bangla voice if installed on OS/Browser
+      if (bnVoice) {
         try {
-          window.speechSynthesis.cancel();
           const utter = new SpeechSynthesisUtterance(cleanText);
           utter.voice = bnVoice;
           utter.lang = bnVoice.lang || 'bn-BD';
           utter.rate = rate;
-          utter.pitch = 1.05;
-          const timer = setTimeout(finish, Math.max(4000, cleanText.length * 300));
+          utter.pitch = 1.02;
+          const timer = setTimeout(finish, Math.max(4500, cleanText.length * 380));
           utter.onend = () => { clearTimeout(timer); finish(); };
           utter.onerror = () => {
             clearTimeout(timer);
-            tryCloudOrFallback(cleanText, rate, finish);
+            playCloudBanglaAudio(cleanText, rate, finish);
           };
           window.speechSynthesis.speak(utter);
           return;
-        } catch (err) {
-          // Fall through to Cloud TTS
-        }
+        } catch (err) {}
       }
 
-      tryCloudOrFallback(cleanText, rate, finish);
+      // 2. Cloud Bangla TTS (Google GTX Bangla MP3 — works with <meta name="referrer" content="no-referrer">)
+      playCloudBanglaAudio(cleanText, rate, finish);
     });
   }
 
-  function tryCloudOrFallback(cleanText, rate, finish) {
-    // Strategy 2: Google Translate Bangla TTS stream via no-referrer Audio element
+  function playCloudBanglaAudio(cleanText, rate, finish) {
     try {
       const encoded = encodeURIComponent(cleanText);
-      const url = `https://translate.googleapis.com/translate_tts?ie=UTF-8&tl=bn&client=tw-ob&q=${encoded}`;
+      const url = `https://translate.googleapis.com/translate_tts?ie=UTF-8&tl=bn&client=gtx&q=${encoded}`;
       const audio = new Audio();
-      audio.referrerPolicy = 'no-referrer';
-      audio.playbackRate = Math.min(Math.max(rate, 0.65), 1.25);
       activeAudio = audio;
 
-      const timeout = setTimeout(() => {
-        speakPhoneticFallback(cleanText, rate, finish);
-      }, 3500);
-
-      audio.oncanplaythrough = () => {
-        clearTimeout(timeout);
+      const applyRate = () => {
+        try {
+          audio.playbackRate = Math.min(Math.max(rate, 0.55), 1.15);
+        } catch (e) {}
       };
+
+      audio.onloadedmetadata = applyRate;
+      audio.onplay = applyRate;
+
+      const timeout = setTimeout(() => {
+        activeAudio = null;
+        speakSlowPhoneticFallback(cleanText, rate, finish);
+      }, 6000);
+
       audio.onended = () => {
         clearTimeout(timeout);
         activeAudio = null;
         finish();
       };
+
       audio.onerror = () => {
         clearTimeout(timeout);
         activeAudio = null;
-        speakPhoneticFallback(cleanText, rate, finish);
+        speakSlowPhoneticFallback(cleanText, rate, finish);
       };
 
       audio.src = url;
       const playPromise = audio.play();
       if (playPromise !== undefined) {
-        playPromise.catch(() => {
+        playPromise.then(applyRate).catch(() => {
           clearTimeout(timeout);
           activeAudio = null;
-          speakPhoneticFallback(cleanText, rate, finish);
+          speakSlowPhoneticFallback(cleanText, rate, finish);
         });
       }
     } catch (e) {
-      speakPhoneticFallback(cleanText, rate, finish);
+      speakSlowPhoneticFallback(cleanText, rate, finish);
     }
   }
 
-  function speakPhoneticFallback(cleanText, rate, finish) {
+  function speakSlowPhoneticFallback(cleanText, rate, finish) {
     if (!('speechSynthesis' in window)) {
-      finish();
+      setTimeout(finish, 500);
       return;
     }
     try {
-      window.speechSynthesis.cancel();
-      const indicVoice = getHindiOrIndicVoice();
-      if (indicVoice) {
-        // Indic voices can often read phonetic or Devanagari-mapped text, or we pass phonetic words
-        const phoneticText = cleanText.split(/\s+/).map(w => transliterate(w)).join(' ');
-        const utter = new SpeechSynthesisUtterance(phoneticText);
-        utter.voice = indicVoice;
-        utter.rate = rate * 0.9;
-        utter.onend = finish;
-        utter.onerror = finish;
+      // Wait 60ms instead of calling cancel() synchronously so Chrome doesn't abort the utterance
+      setTimeout(() => {
+        if (stopRequested) {
+          finish();
+          return;
+        }
+        const phoneticWords = cleanText.split(/\s+/).map(w => transliterate(w)).join(', ');
+        const utter = new SpeechSynthesisUtterance(phoneticWords);
+        utter.lang = 'en-US';
+        utter.rate = Math.min(0.72, rate);
+        utter.pitch = 1.0;
+        const timer = setTimeout(finish, Math.max(3500, phoneticWords.length * 300));
+        utter.onend = () => { clearTimeout(timer); finish(); };
+        utter.onerror = () => { clearTimeout(timer); setTimeout(finish, 400); };
         window.speechSynthesis.speak(utter);
-        return;
-      }
-      // English phonetic reading as last-resort offline fallback so kids always hear the pronunciation
-      const phoneticText = cleanText.split(/\s+/).map(w => transliterate(w)).join(' ');
-      const utter = new SpeechSynthesisUtterance(phoneticText);
-      utter.lang = 'en-US';
-      utter.rate = rate * 0.85;
-      utter.pitch = 1.05;
-      const timer = setTimeout(finish, Math.max(3000, phoneticText.length * 250));
-      utter.onend = () => { clearTimeout(timer); finish(); };
-      utter.onerror = () => { clearTimeout(timer); finish(); };
-      window.speechSynthesis.speak(utter);
+      }, 60);
     } catch (e) {
-      finish();
+      setTimeout(finish, 500);
     }
   }
 
-  /**
-   * Speaks a single word immediately
-   */
   async function speakWord(word, options = {}) {
     stopSpeaking();
     stopRequested = false;
-    await speakSegment(word, options);
+    await speakSegment(word, { rate: options.rate || 0.82 });
   }
 
   /**
-   * Speaks an array of poem lines sequentially, invoking `onLineStart(lineIdx, lineObj)` and `onDone()`
+   * Speaks poem lines clearly with deliberate pauses between words and lines!
+   * Supports two modes:
+   * - 'word-by-word' (speaks each word distinctly, highlights that exact tile, pauses 380ms between words and 850ms between lines)
+   * - 'line-by-line' (speaks each line with comma pauses between words, highlights tiles sequentially, pauses 950ms between lines)
    */
   async function speakPoemLines(lines, callbacks = {}) {
     stopSpeaking();
     stopRequested = false;
-    const rate = callbacks.rate || 0.9;
+    const rate = callbacks.rate || 0.80;
+    const mode = callbacks.mode || 'line-paced';
 
     for (let i = 0; i < lines.length; i++) {
       if (stopRequested) break;
       const line = lines[i];
       if (callbacks.onLineStart) callbacks.onLineStart(i, line);
-      await speakSegment(line.text, { rate });
+
+      if (mode === 'word-by-word') {
+        for (let wIdx = 0; wIdx < line.tiles.length; wIdx++) {
+          if (stopRequested) break;
+          const tile = line.tiles[wIdx];
+          if (callbacks.onWordStart) callbacks.onWordStart(tile, wIdx, line);
+          await speakSegment(tile.word, { rate });
+          if (stopRequested) break;
+          await new Promise(r => setTimeout(r, 380));
+        }
+      } else {
+        // Line-paced mode: inject gentle comma pauses so TTS articulates every word clearly,
+        // and animate word highlight across the line while speaking
+        const pacedLineText = line.tiles.map(t => t.word).join(', ') + '।';
+        let wordStepTimer = null;
+        if (callbacks.onWordStart && line.tiles.length > 0) {
+          let curW = 0;
+          callbacks.onWordStart(line.tiles[0], 0, line);
+          wordStepTimer = setInterval(() => {
+            curW++;
+            if (curW < line.tiles.length) {
+              callbacks.onWordStart(line.tiles[curW], curW, line);
+            }
+          }, Math.round(680 / rate));
+        }
+        await speakSegment(pacedLineText, { rate });
+        if (wordStepTimer) clearInterval(wordStepTimer);
+      }
+
       if (stopRequested) break;
-      // Brief poetic pause between lines
-      await new Promise(r => setTimeout(r, 220));
+      // Clear 950ms pause between poem lines so kids can absorb each line!
+      await new Promise(r => setTimeout(r, 950));
     }
 
     if (callbacks.onDone) callbacks.onDone();
@@ -859,6 +928,7 @@
     detectLineSubject,
     agreeVerbWithSubject,
     findRhymes,
+    getSmartSuggestions,
     speakWord,
     speakPoemLines,
     stopSpeaking,

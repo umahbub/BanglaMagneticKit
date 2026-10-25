@@ -3,8 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Strip Referer header so cloud Bangla TTS audio streams work reliably on GitHub Pages -->
+  <meta name="referrer" content="no-referrer" />
   <title>ছড়ার চুম্বক | Bangla Magnetic Word Kit for Kids</title>
-  <meta name="description" content="Kid-friendly Bangla Magnetic Poetry Kit — Browse Bangla words, snap endings, change verb forms, hear pronunciation, and create poems online!" />
+  <meta name="description" content="Kid-friendly Bangla Magnetic Poetry Kit — Smart word suggestions, suffix magnets, subject-verb agreement, clear Bangla audio pronunciation, and 20 classic Choras!" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Baloo+Da+2:wght@500;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -12,7 +14,7 @@
 </head>
 <body class="theme-fridge show-phonetics">
 
-  <!-- Simple, Kid-Friendly Top Bar -->
+  <!-- Clean Top Header with Progressive Disclosure Menu -->
   <header class="app-header">
     <div class="logo-magnet">
       <span class="logo-emoji">🧲</span>
@@ -22,62 +24,149 @@
     </div>
 
     <div class="header-controls">
-      <button id="btnTogglePhonetics" class="ctrl-pill active" title="Show or hide English pronunciation under words">
-        <span class="pill-icon">Abc</span>
-        <span class="pill-label">উচ্চারণ (Phonetics): <strong>ON</strong></span>
-      </button>
-
       <button id="btnOpenTemplates" class="btn-action btn-templates" title="Load a classic Bangla rhyme">
-        <span>📖</span> ছড়ার ঝুলি (Choras)
+        <span>📖</span> ছড়ার ঝুলি (20 Choras)
       </button>
 
       <button id="btnOpenAddWord" class="btn-action btn-add-word" title="Add your own Bangla word">
         <span>➕</span> নতুন শব্দ (Add Word)
       </button>
 
-      <button id="btnExportImage" class="btn-action btn-export-img" title="Download your poem as a picture">
-        <span>📸</span> ছবি সেভ (Save Image)
+      <button id="btnOpenSavedPoems" class="btn-action btn-saved" title="Save or load your poems">
+        <span>💾</span> আমার খাতা (<span id="savedPoemsCount">0</span>)
       </button>
+
+      <!-- Collapsible "More Options" Menu so all power features are 1 click away without crowding! -->
+      <div class="more-menu-wrap">
+        <button id="btnToggleMoreMenu" class="btn-action btn-more-options" title="More Settings & Options">
+          <span>⚙️</span> অপশন (Options ▾)
+        </button>
+
+        <div id="moreOptionsDropdown" class="more-options-dropdown hidden">
+          <div class="dropdown-section-title">উচ্চারণ ও ব্যাকরণ (Speech &amp; Grammar)</div>
+          <button id="btnTogglePhonetics" class="dropdown-item active">
+            <span>🔤 ইংরেজি উচ্চারণ বানান (Phonetics)</span>
+            <strong class="status-pill">ON</strong>
+          </button>
+          <button id="btnToggleAutoSpeak" class="dropdown-item active">
+            <span>🔊 ক্লিক করলেই শব্দের উচ্চারণ (Speak on Click)</span>
+            <strong class="status-pill">ON</strong>
+          </button>
+          <button id="btnToggleAutoAgree" class="dropdown-item active">
+            <span>🤝 স্বয়ংক্রিয় কর্তা-ক্রিয়া মিল (Auto Verb Agreement)</span>
+            <strong class="status-pill">ON</strong>
+          </button>
+          <button id="btnAutoAgreeAll" class="dropdown-item">
+            <span>✨ এখনই সব লাইনের ক্রিয়া মেলাও (Harmonize Verbs Now)</span>
+          </button>
+
+          <div class="dropdown-divider"></div>
+          <div class="dropdown-section-title">বোর্ডের রঙ ও ছবি (Theme &amp; Export)</div>
+          <div class="dropdown-theme-row">
+            <span>🎨 বোর্ডের রঙ:</span>
+            <div class="theme-switcher">
+              <button class="theme-btn active" data-theme="theme-fridge" title="White Fridge">🧊 সাদা</button>
+              <button class="theme-btn" data-theme="theme-sky" title="Night Sky">🌙 আকাশ</button>
+              <button class="theme-btn" data-theme="theme-meadow" title="Green Meadow">🌿 মাঠ</button>
+              <button class="theme-btn" data-theme="theme-notebook" title="Notebook">📓 খাতা</button>
+            </div>
+          </div>
+          <button id="btnExportImage" class="dropdown-item highlight-export">
+            <span>📸 ছড়ার রঙিন ছবি ডাউনলোড করো (Download PNG)</span>
+          </button>
+        </div>
+      </div>
     </div>
   </header>
 
   <!-- Main Two-Column Kid Workspace -->
   <main class="workspace-grid">
 
-    <!-- LEFT: Spacious Word Magnet Box -->
+    <!-- LEFT: Spacious Word Magnet Box (Defaults to Smart Next-Word Suggestions!) -->
     <aside class="word-browser-panel" aria-label="Bangla Word Magnets">
       <div class="panel-header">
-        <!-- Search + Category Row -->
+        <!-- Search Input Row -->
         <div class="search-and-count">
           <div class="search-box-wrap">
             <span class="search-icon">🔍</span>
-            <input type="text" id="wordSearchInput" placeholder="শব্দ খোঁজো (Search word: চাঁদ, chaand, পাখি)..." autocomplete="off" />
+            <input type="text" id="wordSearchInput" placeholder="শব্দ খোঁজো (যেমন: চাঁদ, chaand, পাখি)..." autocomplete="off" />
             <button id="btnClearSearch" class="btn-clear-search hidden" title="Clear">✕</button>
           </div>
-          <span id="wordCountBadge" class="badge-count">0</span>
+          <span id="wordCountBadge" class="badge-count">28টি</span>
         </div>
 
-        <!-- Simple 2-Row Category Buttons -->
-        <div class="category-tabs" id="categoryTabs" role="tablist">
-          <button class="cat-tab active" data-cat="popular" title="Popular Words">🌟 জনপ্রিয়</button>
-          <button class="cat-tab" data-cat="endings" title="Word Endings (-e, -chhi, -ta)">🧩 প্রত্যয় (-এ/-ছি)</button>
-          <button class="cat-tab" data-cat="pronoun_people" title="People & Pronouns">🙋 মানুষ</button>
-          <button class="cat-tab" data-cat="nature" title="Nature & Sky">🌙 প্রকৃতি</button>
-          <button class="cat-tab" data-cat="animals" title="Birds & Animals">🦜 প্রাণী</button>
-          <button class="cat-tab" data-cat="verbs" title="Verbs & Actions">🏃 কাজ (ক্রিয়া)</button>
-          <button class="cat-tab" data-cat="adjectives" title="Colors & Adjectives">🎨 রং ও কেমন</button>
-          <button class="cat-tab" data-cat="rhythm" title="Rhythm & Sounds">🥁 ছন্দ</button>
-          <button class="cat-tab" data-cat="objects_food" title="Objects & Food">🏠 জিনিস ও খাবার</button>
-          <button class="cat-tab" data-cat="all" title="All 1,340+ Words">📚 সব শব্দ</button>
+        <!-- Primary 3-Button Mode Bar (Clean & Simple!) -->
+        <div class="primary-mode-bar">
+          <button class="cat-tab active" data-cat="smart" id="tabSmartDefault">
+            ✨ পরের শব্দ (Suggested)
+          </button>
+          <button class="cat-tab" data-cat="endings" id="tabEndingsMain">
+            🧩 প্রত্যয় (-এ, -ছি, -টা)
+          </button>
+          <button type="button" id="btnToggleCatDrawer" class="btn-cat-drawer-toggle">
+            📂 সব ক্যাটাগরি ও বর্ণ ▾
+          </button>
+        </div>
+
+        <!-- Collapsible Category & Alphabet Drawer (Hidden until user clicks '📂 সব ক্যাটাগরি ও বর্ণ ▾') -->
+        <div id="collapsibleFilterDrawer" class="collapsible-filter-drawer hidden">
+          <div class="drawer-section-label">বিষয় অনুযায়ী শব্দ (Categories):</div>
+          <div class="category-tabs" id="categoryTabs">
+            <button class="cat-tab" data-cat="popular">🌟 জনপ্রিয় (Popular)</button>
+            <button class="cat-tab" data-cat="pronoun_people">🙋 মানুষ ও সর্বনাম</button>
+            <button class="cat-tab" data-cat="nature">🌙 প্রকৃতি ও আকাশ</button>
+            <button class="cat-tab" data-cat="animals">🦜 পাখি ও প্রাণী</button>
+            <button class="cat-tab" data-cat="verbs">🏃 কাজ ও ক্রিয়া</button>
+            <button class="cat-tab" data-cat="adjectives">🎨 রং ও বিশেষণ</button>
+            <button class="cat-tab" data-cat="rhythm">🥁 ছন্দ ও ধ্বনি</button>
+            <button class="cat-tab" data-cat="objects_food">🏠 জিনিস ও খাবার</button>
+            <button class="cat-tab" data-cat="custom">✨ আমার যোগ করা শব্দ</button>
+            <button class="cat-tab" data-cat="all">📚 সব ১৩০০+ শব্দ</button>
+          </div>
+
+          <div class="drawer-section-label" style="margin-top:8px;">প্রথম বর্ণ দিয়ে খুঁজুন (Filter by First Letter):</div>
+          <div class="letter-filter-bar" id="letterFilterBar">
+            <button class="letter-btn active" data-letter="">সব</button>
+            <button class="letter-btn" data-letter="অ">অ</button>
+            <button class="letter-btn" data-letter="আ">আ</button>
+            <button class="letter-btn" data-letter="ই">ই/ঈ</button>
+            <button class="letter-btn" data-letter="উ">উ/ঊ</button>
+            <button class="letter-btn" data-letter="এ">এ/ঐ</button>
+            <button class="letter-btn" data-letter="ও">ও/ঔ</button>
+            <button class="letter-btn" data-letter="ক">ক</button>
+            <button class="letter-btn" data-letter="খ">খ</button>
+            <button class="letter-btn" data-letter="গ">গ</button>
+            <button class="letter-btn" data-letter="ঘ">ঘ</button>
+            <button class="letter-btn" data-letter="চ">চ</button>
+            <button class="letter-btn" data-letter="ছ">ছ</button>
+            <button class="letter-btn" data-letter="জ">জ</button>
+            <button class="letter-btn" data-letter="ঝ">ঝ</button>
+            <button class="letter-btn" data-letter="ট">ট/ঠ</button>
+            <button class="letter-btn" data-letter="ড">ড/ঢ</button>
+            <button class="letter-btn" data-letter="ত">ত/থ</button>
+            <button class="letter-btn" data-letter="দ">দ</button>
+            <button class="letter-btn" data-letter="ধ">ধ</button>
+            <button class="letter-btn" data-letter="ন">ন</button>
+            <button class="letter-btn" data-letter="প">প</button>
+            <button class="letter-btn" data-letter="ফ">ফ</button>
+            <button class="letter-btn" data-letter="ব">ব</button>
+            <button class="letter-btn" data-letter="ভ">ভ</button>
+            <button class="letter-btn" data-letter="ম">ম</button>
+            <button class="letter-btn" data-letter="য">য/র</button>
+            <button class="letter-btn" data-letter="ল">ল</button>
+            <button class="letter-btn" data-letter="শ">শ/ষ/স</button>
+            <button class="letter-btn" data-letter="হ">হ</button>
+          </div>
         </div>
       </div>
 
-      <!-- Short 1-line helper when on Endings tab -->
-      <div id="endingsHelperBanner" class="endings-helper-banner hidden">
-        🧩 যেকোনো প্রত্যয় (যেমন <strong>-এ</strong>, <strong>-ছি</strong>, <strong>-টা</strong>) টেনে বোর্ডের শব্দের ওপর ছাড়লে যুক্ত হবে!
+      <!-- Context Banner (Shows what category or smart suggestion is active) -->
+      <div id="trayContextBanner" class="tray-context-banner">
+        <span id="trayContextText">✨ পরের সম্ভাব্য শব্দ (ক্লিক করলে বা টেনে আনলে বোর্ডে যুক্ত হবে)</span>
+        <button type="button" id="btnRefreshSmart" class="btn-refresh-smart" title="আরও নতুন শব্দ দেখো">🔄 আরও শব্দ</button>
       </div>
 
-      <!-- Big, Scrollable Word Magnet Tray (Takes ~80% of Left Panel Height!) -->
+      <!-- Big, Scrollable Word Magnet Tray -->
       <div class="word-tray" id="wordTray" role="region" aria-live="polite"></div>
 
       <!-- Compact Footer for Punctuation & New Line -->
@@ -101,27 +190,22 @@
         </div>
 
         <div class="toolbar-center">
-          <button id="btnPlayPoem" class="btn-play-poem" title="পুরো ছড়াটি শোনো (Listen to Poem)">
+          <button id="btnPlayPoem" class="btn-play-poem" title="পুরো ছড়াটি স্পষ্ট উচ্চারণে শোনো">
             <span>▶️</span> ছড়া শোনো (Play Poem)
           </button>
           <button id="btnStopPoem" class="btn-stop-poem hidden" title="থামাও (Stop)">
             <span>⏹️</span> থামাও
           </button>
-          <select id="speechSpeedSelect" class="speed-select" title="Reading Speed">
-            <option value="0.78">🐢 ধীর</option>
-            <option value="0.92" selected>🐇 স্বাভাবিক</option>
-            <option value="1.08">⚡ দ্রুত</option>
+          <!-- Reading Pacing Mode Selector -->
+          <select id="speechModeSelect" class="speed-select" title="ছড়া পড়ার ধরন (Reading Style)">
+            <option value="word-by-word" selected>🐢 প্রতিটি শব্দ স্পষ্ট করে (Word by Word)</option>
+            <option value="line-paced">🎶 লাইন ধরে ছড়া (Line by Line)</option>
           </select>
         </div>
 
         <div class="toolbar-right">
-          <div class="theme-switcher" title="বোর্ডের রঙ (Board Color)">
-            <button class="theme-btn active" data-theme="theme-fridge" title="White Board">🧊</button>
-            <button class="theme-btn" data-theme="theme-sky" title="Night Sky">🌙</button>
-            <button class="theme-btn" data-theme="theme-meadow" title="Green Meadow">🌿</button>
-            <button class="theme-btn" data-theme="theme-notebook" title="Notebook">📓</button>
-          </div>
           <button id="btnTidyBoard" class="btn-tool" title="লাইনে সাজাও (Align neatly)">📏 সাজাও</button>
+          <button id="btnSavePoem" class="btn-tool" title="খাতায় সেভ করো (Save Poem)">💾 সেভ</button>
           <button id="btnUndo" class="btn-tool" title="আগের ধাপ (Undo)">↩️ Undo</button>
           <button id="btnClearBoard" class="btn-tool btn-danger" title="মুছে ফেলো (Clear)">🗑️ মুছুন</button>
         </div>
@@ -169,7 +253,6 @@
 
         <!-- Expanded Panel when a tile on the board IS selected -->
         <div id="inspectorActive" class="inspector-active hidden">
-          <!-- Selected Word Summary -->
           <div class="insp-word-card">
             <div class="insp-main-word-row">
               <div>
@@ -186,19 +269,12 @@
             </div>
 
             <div class="insp-tile-actions">
-              <button id="btnInspDuplicate" class="btn-mini">📋 কপি (Copy)</button>
-              <button id="btnInspDelete" class="btn-mini btn-mini-danger">🗑️ মুছুন (Delete)</button>
+              <button id="btnInspDuplicate" class="btn-mini">📋 কপি</button>
+              <button id="btnInspDelete" class="btn-mini btn-mini-danger">🗑️ মুছুন</button>
               <button id="btnInspClose" class="btn-mini">✕ বন্ধ</button>
-            </div>
-
-            <!-- Hidden direct edit kept for compatibility -->
-            <div class="insp-direct-edit hidden">
-              <input type="text" id="inspCustomTextInput" />
-              <button id="btnInspApplyCustom">বদলাও</button>
             </div>
           </div>
 
-          <!-- Simple 3-Tab Word Transformer -->
           <div class="insp-tabs-area">
             <div class="insp-mode-tabs">
               <button class="insp-tab active" data-insptab="verb">🏃 ক্রিয়ার রূপ (আমি / তুমি / সে)</button>
@@ -206,10 +282,8 @@
               <button class="insp-tab" data-insptab="rhyme">🎵 ছন্দ মেলাও (Rhymes)</button>
             </div>
 
-            <!-- Pane 1: Verb Forms by Subject -->
             <div id="inspPaneVerb" class="insp-pane">
               <div class="subject-selector-row">
-                <span id="verbRootLabel" class="verb-root-label hidden"></span>
                 <span class="row-label">কর্তা বেছে নাও:</span>
                 <div class="subject-pills" id="subjectPills">
                   <button class="subj-pill active" data-subj="আমি">আমি (I)</button>
@@ -218,12 +292,10 @@
                   <button class="subj-pill" data-subj="সে">সে / তারা (He/She)</button>
                   <button class="subj-pill" data-subj="আপনি">আপনি</button>
                 </div>
-                <span id="lineSubjectMatchBadge" class="line-subject-badge hidden"></span>
               </div>
               <div id="verbConjugationGrid" class="verb-conjugation-grid"></div>
             </div>
 
-            <!-- Pane 2: Noun Endings -->
             <div id="inspPaneNoun" class="insp-pane hidden">
               <div id="kitAttestedEndingsRow" class="kit-attested-row hidden">
                 <div id="kitAttestedChips" class="inflection-chips"></div>
@@ -231,7 +303,6 @@
               <div id="nounInflectionChips" class="inflection-chips"></div>
             </div>
 
-            <!-- Pane 3: Rhymes -->
             <div id="inspPaneRhyme" class="insp-pane hidden">
               <div class="rhyme-pane-header">
                 <span><strong id="rhymeTargetLabel">চাঁদ</strong>-এর সাথে ছন্দ মেলে (ক্লিক করলে বোর্ডে যোগ হবে):</span>
@@ -259,7 +330,7 @@
         <div class="template-mode-bar">
           <label class="radio-pill">
             <input type="radio" name="templateLoadMode" value="short" checked />
-            <span>🌱 প্রথম ৪-৬ লাইন (ছোটদের জন্য সহজ)</span>
+            <span>🌱 প্রথম ৪ লাইন (ছোটদের জন্য সহজ)</span>
           </label>
           <label class="radio-pill">
             <input type="radio" name="templateLoadMode" value="full" />
@@ -323,6 +394,22 @@
             <button type="submit" class="btn-primary-glow">➕ যোগ করো</button>
           </div>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 3: Saved Poems Notebook -->
+  <div id="modalSavedPoems" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="modal-card modal-large">
+      <div class="modal-header">
+        <div>
+          <h2>💾 আমার ছড়ার খাতা (My Saved Poems)</h2>
+          <p class="modal-sub">তোমার সেভ করা ছড়াগুলো এখানে জমা থাকে।</p>
+        </div>
+        <button class="btn-close-modal" data-close="modalSavedPoems">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="savedPoemsList" class="saved-poems-list"></div>
       </div>
     </div>
   </div>
