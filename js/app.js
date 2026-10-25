@@ -1,19 +1,17 @@
 /**
  * ছড়ার চুম্বক | Bangla Magnetic Word Kit for Kids
- * Main Application Controller (js/app.js)
+ * Simplified, Kid-Friendly Application Controller (js/app.js)
  */
 
 (function () {
   const DATA = window.BANGLA_KIT_DATA || { words: [], endings: [], poems: [] };
   const Engine = window.BanglaEngine;
 
-  // Lookup maps
   const wordMetaMap = new Map();
   DATA.words.forEach(item => wordMetaMap.set(item.w, item));
 
   // Load custom words from localStorage
   const STORAGE_CUSTOM_WORDS = 'bangla_magnet_custom_words_v1';
-  const STORAGE_SAVED_POEMS = 'bangla_magnet_saved_poems_v1';
   let customWords = [];
   try {
     customWords = JSON.parse(localStorage.getItem(STORAGE_CUSTOM_WORDS) || '[]');
@@ -25,23 +23,15 @@
     customWords = [];
   }
 
-  let savedPoems = [];
-  try {
-    savedPoems = JSON.parse(localStorage.getItem(STORAGE_SAVED_POEMS) || '[]');
-  } catch (e) {
-    savedPoems = [];
-  }
-
   // App State
   const state = {
     activeCategory: 'popular',
     searchQuery: '',
-    activeLetter: '',
     showPhonetics: true,
     autoSpeak: true,
     autoAgree: true,
     boardTheme: 'theme-fridge',
-    boardTiles: [], // { id, word, baseWord, ending, category, x, y, lineIdx, tilt }
+    boardTiles: [],
     selectedTileId: null,
     inspectorTab: 'verb', // 'verb' | 'noun' | 'rhyme'
     selectedSubject: 'আমি',
@@ -50,8 +40,8 @@
     isPlayingPoem: false
   };
 
-  const LINE_HEIGHT = 62;
-  const LINE_TOP_OFFSET = 20;
+  const LINE_HEIGHT = 70;
+  const LINE_TOP_OFFSET = 22;
   const LINE_LEFT_START = 34;
 
   // DOM Elements
@@ -60,7 +50,6 @@
   const elWordSearchInput = document.getElementById('wordSearchInput');
   const elBtnClearSearch = document.getElementById('btnClearSearch');
   const elCategoryTabs = document.getElementById('categoryTabs');
-  const elLetterFilterBar = document.getElementById('letterFilterBar');
   const elEndingsHelperBanner = document.getElementById('endingsHelperBanner');
 
   const elBoard = document.getElementById('magneticBoard');
@@ -86,9 +75,6 @@
   const elInspWordPhonetic = document.getElementById('inspWordPhonetic');
   const elInspMorphBreakdown = document.getElementById('inspMorphBreakdown');
   const elInspMorphFormula = document.getElementById('inspMorphFormula');
-  const elInspCustomTextInput = document.getElementById('inspCustomTextInput');
-  const elVerbRootLabel = document.getElementById('verbRootLabel');
-  const elLineSubjectMatchBadge = document.getElementById('lineSubjectMatchBadge');
   const elSubjectPills = document.getElementById('subjectPills');
   const elVerbConjugationGrid = document.getElementById('verbConjugationGrid');
   const elKitAttestedRow = document.getElementById('kitAttestedEndingsRow');
@@ -104,8 +90,8 @@
     verbs: '🏃 কাজ ও ক্রিয়া',
     adjectives: '🎨 রং ও বিশেষণ',
     rhythm: '🥁 ছন্দ ও ধ্বনি',
-    objects_food: '🏠 চারপাশ ও খাবার',
-    endings: '🧩 বিভক্তি ও প্রত্যয়',
+    objects_food: '🏠 জিনিস ও খাবার',
+    endings: '🧩 প্রত্যয়',
     general: '✨ ছড়ার শব্দ'
   };
 
@@ -139,100 +125,77 @@
   }
 
   // ==========================================================================
-  // 1. RENDER WORD & ENDING BROWSER
+  // 1. RENDER WORD & ENDING BROWSER (Clean, Big Magnet Tiles)
   // ==========================================================================
   function renderWordBrowser() {
+    if (!elWordTray) return;
     elWordTray.innerHTML = '';
     const cat = state.activeCategory;
     const q = state.searchQuery.trim().toLowerCase();
-    const letter = state.activeLetter;
 
-    // Show/hide endings helper banner
-    if (cat === 'endings' && !q) {
-      elEndingsHelperBanner.classList.remove('hidden');
-    } else {
-      elEndingsHelperBanner.classList.add('hidden');
+    if (elEndingsHelperBanner) {
+      elEndingsHelperBanner.classList.toggle('hidden', !(cat === 'endings' && !q));
     }
 
-    // Special rendering for Endings tab when no search query
+    // Endings tab: show clean, big suffix magnet tiles
     if (cat === 'endings' && !q) {
       const endingsList = DATA.endings || [];
-      elWordCountBadge.textContent = `${endingsList.length}টি প্রত্যয়`;
+      if (elWordCountBadge) elWordCountBadge.textContent = `${endingsList.length}টি`;
+      const frag = document.createDocumentFragment();
+
       endingsList.forEach(endObj => {
-        const card = document.createElement('div');
-        card.className = 'magnet-tile ending-tray-card';
-        card.dataset.cat = 'endings';
-        card.dataset.word = endObj.text;
-        card.dataset.isEnding = 'true';
+        const tile = document.createElement('div');
+        tile.className = 'magnet-tile';
+        tile.dataset.cat = 'endings';
+        tile.dataset.word = endObj.text;
+        tile.dataset.isEnding = 'true';
+        tile.title = `${endObj.label_bn} — উদা: ${endObj.example}`;
 
         const ph = Engine.transliterate(endObj.text);
-        card.innerHTML = `
-          <div class="ending-card-left">
-            <span class="ending-badge">-${endObj.text}</span>
-            <div class="ending-meta">
-              <span class="ending-meta-title">${endObj.label_bn} <small>(${ph})</small></span>
-              <span class="ending-meta-ex">উদা: ${endObj.example}</span>
-            </div>
+        tile.innerHTML = `
+          <div class="tile-text-col">
+            <span class="tile-bn">-${endObj.text}</span>
+            <span class="tile-phonetic">-${ph}</span>
           </div>
           <button type="button" class="tile-speak-btn" title="উচ্চারণ শোনো">🔊</button>
         `;
 
-        setupTrayTileEvents(card, endObj.text, 'endings', true);
-        elWordTray.appendChild(card);
+        setupTrayTileEvents(tile, endObj.text, 'endings', true);
+        frag.appendChild(tile);
       });
+      elWordTray.appendChild(frag);
       return;
     }
 
     // Filter words
-    let filtered = DATA.words.filter(item => {
+    const filtered = DATA.words.filter(item => {
       if (q) {
         return item.w.includes(q) || (item.p && item.p.toLowerCase().includes(q));
       }
       if (cat === 'popular') return item.pop;
-      if (cat === 'custom') return item.isCustom;
       if (cat !== 'all' && item.c !== cat) return false;
       return true;
     });
 
-    // Apply Bangla starting letter filter if set
-    if (letter) {
-      const letterMap = {
-        'ই': ['ই', 'ঈ'],
-        'উ': ['উ', 'ঊ'],
-        'এ': ['এ', 'ঐ'],
-        'ও': ['ও', 'ঔ'],
-        'ট': ['ট', 'ঠ'],
-        'ড': ['ড', 'ঢ'],
-        'ত': ['ত', 'থ'],
-        'য': ['য', 'র'],
-        'শ': ['শ', 'ষ', 'স']
-      };
-      const allowedStarts = letterMap[letter] || [letter];
-      filtered = filtered.filter(item => allowedStarts.some(st => item.w.startsWith(st)));
-    }
-
-    elWordCountBadge.textContent = `${filtered.length}টি শব্দ`;
+    if (elWordCountBadge) elWordCountBadge.textContent = `${filtered.length}টি`;
 
     if (filtered.length === 0) {
       elWordTray.innerHTML = `
-        <div style="padding: 20px; text-align: center; color: #64748b; width: 100%;">
-          <p style="margin-bottom: 8px;">কোনো শব্দ পাওয়া যায়নি (No matching words found)</p>
-          <button type="button" id="btnTrayAddSearchWord" class="btn-primary-glow" style="font-size: 0.82rem; padding: 6px 12px;">
-            ➕ "${state.searchQuery || 'নতুন শব্দ'}" ঝুলিতে যোগ করো
+        <div style="padding: 24px; text-align: center; color: #64748b; width: 100%;">
+          <p style="margin-bottom: 10px; font-size: 1rem;">কোনো শব্দ পাওয়া যায়নি</p>
+          <button type="button" id="btnTrayAddSearchWord" class="btn-primary-glow" style="font-size: 0.9rem; padding: 8px 16px;">
+            ➕ "${state.searchQuery || 'নতুন শব্দ'}" যোগ করো
           </button>
         </div>
       `;
       const btnQuickAdd = document.getElementById('btnTrayAddSearchWord');
       if (btnQuickAdd) {
-        btnQuickAdd.addEventListener('click', () => {
-          openAddWordModal(state.searchQuery.trim());
-        });
+        btnQuickAdd.addEventListener('click', () => openAddWordModal(state.searchQuery.trim()));
       }
       return;
     }
 
-    // Limit DOM nodes to 280 for snappy rendering
-    const slice = filtered.slice(0, 280);
+    const slice = filtered.slice(0, 260);
     const frag = document.createDocumentFragment();
 
     slice.forEach(item => {
@@ -270,7 +233,6 @@
       });
     }
 
-    // Support dragging from tray onto the board OR simple click to add
     let startX = 0, startY = 0;
     let ghostEl = null;
     let hasMoved = false;
@@ -305,8 +267,8 @@
         }
 
         if (hasMoved && ghostEl) {
-          ghostEl.style.left = `${moveEv.clientX - 35}px`;
-          ghostEl.style.top = `${moveEv.clientY - 22}px`;
+          ghostEl.style.left = `${moveEv.clientX - 40}px`;
+          ghostEl.style.top = `${moveEv.clientY - 25}px`;
           if (isEnding) {
             highlightFusionTargetAtPoint(moveEv.clientX, moveEv.clientY, word);
           }
@@ -331,7 +293,6 @@
             upEv.clientY >= boardRect.top &&
             upEv.clientY <= boardRect.bottom
           ) {
-            // Check if dropped ending onto an existing board tile
             if (isEnding) {
               const targetTile = findBoardTileNearPoint(upEv.clientX, upEv.clientY);
               if (targetTile) {
@@ -339,8 +300,8 @@
                 return;
               }
             }
-            const dropX = Math.max(20, upEv.clientX - boardRect.left + elBoard.scrollLeft - 35);
-            const dropY = Math.max(14, upEv.clientY - boardRect.top + elBoard.scrollTop - 20);
+            const dropX = Math.max(20, upEv.clientX - boardRect.left + elBoard.scrollLeft - 40);
+            const dropY = Math.max(14, upEv.clientY - boardRect.top + elBoard.scrollTop - 22);
             const lineIdx = Math.max(0, Math.round((dropY - LINE_TOP_OFFSET) / LINE_HEIGHT));
             addWordToBoard(word, {
               category,
@@ -351,9 +312,8 @@
             });
           }
         } else {
-          // Simple click on tray tile
+          // Clicked tile in left tray
           if (isEnding) {
-            // If a tile is selected on the board (or there's a last tile), snap ending onto it!
             const targetId = state.selectedTileId || (state.boardTiles.length > 0 ? state.boardTiles[state.boardTiles.length - 1].id : null);
             if (targetId) {
               fuseEndingOntoTile(targetId, word);
@@ -370,9 +330,10 @@
   }
 
   // ==========================================================================
-  // 2. MAGNETIC BOARD MANAGEMENT & INTERACTION
+  // 2. MAGNETIC BOARD MANAGEMENT
   // ==========================================================================
   function renderLineGuides() {
+    if (!elBoardLineGuides) return;
     elBoardLineGuides.innerHTML = '';
     const maxLine = state.boardTiles.reduce((m, t) => Math.max(m, t.lineIdx || 0), 6);
     const totalLines = Math.max(8, maxLine + 3);
@@ -389,8 +350,8 @@
 
   function estimateTileWidth(word) {
     const ph = Engine.transliterate(word);
-    const charLen = Math.max(word.length * 14, state.showPhonetics ? ph.length * 8 : 0);
-    return Math.max(58, charLen + 34);
+    const charLen = Math.max(word.length * 16, state.showPhonetics ? ph.length * 9 : 0);
+    return Math.max(68, charLen + 38);
   }
 
   function getNextPositionForLine(lineIdx) {
@@ -401,11 +362,11 @@
     let maxRight = LINE_LEFT_START;
     tilesOnLine.forEach(t => {
       const w = estimateTileWidth(t.word);
-      if (t.x + w + 10 > maxRight) {
-        maxRight = t.x + w + 10;
+      if (t.x + w + 12 > maxRight) {
+        maxRight = t.x + w + 12;
       }
     });
-    const boardWidth = Math.max(560, elBoard.clientWidth - 60);
+    const boardWidth = Math.max(520, elBoard.clientWidth - 50);
     if (maxRight > boardWidth - 80) {
       const nextLine = lineIdx + 1;
       state.currentCursorLine = nextLine;
@@ -432,15 +393,14 @@
       x: pos.x,
       y: pos.y,
       lineIdx: pos.lineIdx,
-      tilt: (Math.random() * 2.4 - 1.2).toFixed(2)
+      tilt: (Math.random() * 2 - 1).toFixed(2)
     };
 
     state.boardTiles.push(newTile);
     state.currentCursorLine = pos.lineIdx;
-    state.selectedTileId = newTile.id;
 
     if (state.autoAgree && !opts.skipAutoAgree) {
-      harmonizeLineSubjectVerb(pos.lineIdx, newTile.id);
+      harmonizeLineSubjectVerb(pos.lineIdx);
     }
 
     renderBoard();
@@ -513,10 +473,7 @@
     targetEl.appendChild(chip);
   }
 
-  /**
-   * Checks a single line on the board for Subject-Verb agreement
-   */
-  function harmonizeLineSubjectVerb(lineIdx, changedTileId = null) {
+  function harmonizeLineSubjectVerb(lineIdx) {
     const lineTiles = state.boardTiles
       .filter(t => t.lineIdx === lineIdx)
       .sort((a, b) => a.x - b.x);
@@ -626,7 +583,6 @@
         clearFusionHighlights();
 
         if (moved) {
-          // If this is an ending tile dropped onto another tile, fuse them!
           if (tile.isEnding) {
             const target = findBoardTileNearPoint(ue.clientX, ue.clientY, tile.id);
             if (target) {
@@ -635,19 +591,17 @@
               return;
             }
           }
-          // Snap Y gently to nearest poem line guide
           const snappedLine = Math.max(0, Math.round((tile.y - LINE_TOP_OFFSET) / LINE_HEIGHT));
           tile.lineIdx = snappedLine;
           tile.y = LINE_TOP_OFFSET + snappedLine * LINE_HEIGHT;
           state.currentCursorLine = snappedLine;
 
           if (state.autoAgree) {
-            harmonizeLineSubjectVerb(snappedLine, tile.id);
+            harmonizeLineSubjectVerb(snappedLine);
           }
           renderBoard();
           renderInspector();
         } else {
-          // Clicked tile on board
           if (state.autoSpeak) {
             Engine.speakWord(tile.word);
           }
@@ -659,7 +613,6 @@
     });
   }
 
-  // Click empty board background to set cursor line & deselect
   elBoard.addEventListener('pointerdown', (e) => {
     if (e.target.closest('.board-tile')) return;
     const rect = elBoard.getBoundingClientRect();
@@ -671,7 +624,7 @@
   });
 
   // ==========================================================================
-  // 3. INTERACTIVE WORD INSPECTOR (Subject-Verb Agreement, Endings, Rhymes)
+  // 3. INTERACTIVE WORD INSPECTOR (Appears when a tile is clicked)
   // ==========================================================================
   function renderInspector() {
     const tile = state.boardTiles.find(t => t.id === state.selectedTileId);
@@ -688,9 +641,7 @@
     elInspCategoryBadge.textContent = CATEGORY_LABELS[tile.category] || '✨ শব্দ';
     elInspWordBn.textContent = tile.word;
     elInspWordPhonetic.textContent = `/${ph}/`;
-    elInspCustomTextInput.value = tile.word;
 
-    // Show root + ending breakdown if fused
     if (tile.ending && tile.baseWord && tile.baseWord !== tile.word) {
       elInspMorphBreakdown.classList.remove('hidden');
       elInspMorphFormula.textContent = `${tile.baseWord} + ${tile.ending} = ${tile.word}`;
@@ -698,7 +649,6 @@
       elInspMorphBreakdown.classList.add('hidden');
     }
 
-    // Activate appropriate pane
     document.querySelectorAll('.insp-tab').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.insptab === state.inspectorTab);
     });
@@ -713,37 +663,18 @@
 
   function renderVerbAgreementPane(tile) {
     const conj = Engine.conjugateVerb(tile.word);
-    elVerbRootLabel.textContent = `ধাতু / মূল: ${conj.root} — ${conj.label}`;
 
-    // Check line subject
-    const lineWords = state.boardTiles
-      .filter(t => t.lineIdx === tile.lineIdx)
-      .sort((a, b) => a.x - b.x)
-      .map(t => t.word);
-    const lineSubj = Engine.detectLineSubject(lineWords);
-
-    if (lineSubj) {
-      elLineSubjectMatchBadge.classList.remove('hidden');
-      elLineSubjectMatchBadge.textContent = `✨ এই লাইনের কর্তা: "${lineSubj}"`;
-    } else {
-      elLineSubjectMatchBadge.classList.add('hidden');
-    }
-
-    // Highlight subject pills
     elSubjectPills.querySelectorAll('.subj-pill').forEach(btn => {
-      const s = btn.dataset.subj;
-      btn.classList.toggle('active', s === state.selectedSubject);
-      btn.classList.toggle('line-matched', s === lineSubj);
+      btn.classList.toggle('active', btn.dataset.subj === state.selectedSubject);
     });
 
     const subj = state.selectedSubject;
     const tenseList = [
-      { key: 'pres', name: 'সাধারণ বর্তমান (Present)' },
-      { key: 'cont', name: 'ঘটমান বর্তমান (Continuous)' },
-      { key: 'perf', name: 'পুরাঘটিত বর্তমান (Perfect)' },
-      { key: 'past', name: 'সাধারণ অতীত (Past)' },
-      { key: 'pcont', name: 'ঘটমান অতীত (Past Cont.)' },
-      { key: 'fut', name: 'ভবিষ্যৎ কাল (Future)' }
+      { key: 'pres', name: 'বর্তমান (Present)' },
+      { key: 'cont', name: 'চলমান (Doing)' },
+      { key: 'perf', name: 'পুরাঘটিত (Have done)' },
+      { key: 'past', name: 'অতীত (Past)' },
+      { key: 'fut', name: 'ভবিষ্যৎ (Future)' }
     ];
 
     elVerbConjugationGrid.innerHTML = '';
@@ -764,31 +695,12 @@
       });
       elVerbConjugationGrid.appendChild(chip);
     });
-
-    // Also add non-finite/participle forms
-    if (conj.other && conj.other.length) {
-      conj.other.forEach(oWord => {
-        const chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'conj-chip' + (oWord === tile.word ? ' current-form' : '');
-        chip.innerHTML = `
-          <span class="chip-tense-label">অসমাপিকা/অন্য:</span>
-          <span class="chip-word-bn">${oWord}</span>
-          <span class="chip-word-en">(${Engine.transliterate(oWord)})</span>
-        `;
-        chip.addEventListener('click', () => {
-          applyWordFormToTile(tile.id, oWord, conj.root, 'verbs');
-        });
-        elVerbConjugationGrid.appendChild(chip);
-      });
-    }
   }
 
   function renderNounInflectionsPane(tile) {
     const base = tile.baseWord || tile.word;
     const meta = wordMetaMap.get(base) || wordMetaMap.get(tile.word);
 
-    // 1. Check attested endings from bangla_choRar_shobdo.xlsx
     if (meta && meta.ends && meta.ends.length > 0) {
       elKitAttestedRow.classList.remove('hidden');
       elKitAttestedChips.innerHTML = '';
@@ -802,16 +714,13 @@
           <span class="chip-word-bn">${fused}</span>
           <span class="chip-word-en">(${Engine.transliterate(fused)})</span>
         `;
-        btn.addEventListener('click', () => {
-          fuseEndingOntoTile(tile.id, endStr);
-        });
+        btn.addEventListener('click', () => fuseEndingOntoTile(tile.id, endStr));
         elKitAttestedChips.appendChild(btn);
       });
     } else {
       elKitAttestedRow.classList.add('hidden');
     }
 
-    // 2. Standard noun inflections
     elNounInflectionChips.innerHTML = '';
     const forms = Engine.getNounInflections(base);
     forms.forEach(f => {
@@ -839,10 +748,10 @@
   function renderRhymeFinderPane(tile) {
     elRhymeTargetLabel.textContent = tile.word;
     elRhymeResultsGrid.innerHTML = '';
-    const rhymes = Engine.findRhymes(tile.word, DATA.words, 32);
+    const rhymes = Engine.findRhymes(tile.word, DATA.words, 24);
 
     if (rhymes.length === 0) {
-      elRhymeResultsGrid.innerHTML = `<span style="font-size:0.82rem; color:#64748b;">এই শব্দের সাথে সরাসরি অন্ত্যমিল পাওয়া যায়নি। অন্য একটি শব্দ চেষ্টা করো!</span>`;
+      elRhymeResultsGrid.innerHTML = `<span style="font-size:0.88rem; color:#64748b;">এই শব্দের সাথে সরাসরি ছন্দ পাওয়া যায়নি।</span>`;
       return;
     }
 
@@ -854,10 +763,7 @@
         <span class="chip-word-bn">${r.word}</span>
         <span class="chip-word-en">(${r.phonetic})</span>
       `;
-      btn.title = 'ক্লিক করলে বোর্ডে যোগ হবে';
-      btn.addEventListener('click', () => {
-        addWordToBoard(r.word, { category: r.category });
-      });
+      btn.addEventListener('click', () => addWordToBoard(r.word, { category: r.category }));
       elRhymeResultsGrid.appendChild(btn);
     });
   }
@@ -871,13 +777,11 @@
     if (category) tile.category = category;
     renderBoard();
     renderInspector();
-    if (state.autoSpeak) {
-      Engine.speakWord(newWord);
-    }
+    if (state.autoSpeak) Engine.speakWord(newWord);
   }
 
   // ==========================================================================
-  // 4. POEM AUDIO NARRATION (Play Full Poem Aloud)
+  // 4. PLAY POEM ALOUD
   // ==========================================================================
   function getStructuredPoemLinesFromBoard() {
     if (state.boardTiles.length === 0) return [];
@@ -917,7 +821,6 @@
         elNarrationBn.textContent = lineObj.text;
         elNarrationEn.textContent = lineObj.phonetic;
 
-        // Highlight all tiles on this line
         elBoardTilesLayer.querySelectorAll('.board-tile').forEach(el => {
           el.classList.remove('speaking-highlight');
         });
@@ -926,9 +829,7 @@
           if (domTile) domTile.classList.add('speaking-highlight');
         });
       },
-      onDone: () => {
-        stopBoardPoemNarration();
-      }
+      onDone: () => stopBoardPoemNarration()
     });
   }
 
@@ -944,7 +845,7 @@
   }
 
   // ==========================================================================
-  // 5. LOAD POEM TEMPLATES & TIDY BOARD
+  // 5. LOAD POEM TEMPLATES & EXPORT IMAGE
   // ==========================================================================
   function loadPoemOntoBoard(poem, mode = 'short') {
     pushUndo();
@@ -953,10 +854,10 @@
     state.selectedTileId = null;
     state.currentCursorLine = 0;
 
-    elPoemTitleInput.value = poem.title_bn;
-    elPoemAuthorInput.value = poem.poet || '';
+    if (elPoemTitleInput) elPoemTitleInput.value = poem.title_bn;
+    if (elPoemAuthorInput) elPoemAuthorInput.value = poem.poet || '';
 
-    const linesToLoad = mode === 'short' ? poem.lines.slice(0, 6) : poem.lines;
+    const linesToLoad = mode === 'short' ? poem.lines.slice(0, 4) : poem.lines;
 
     linesToLoad.forEach((lineObj, lineIdx) => {
       let curX = LINE_LEFT_START;
@@ -977,17 +878,16 @@
           x: curX,
           y: curY,
           lineIdx,
-          tilt: (Math.random() * 2 - 1).toFixed(2)
+          tilt: (Math.random() * 1.6 - 0.8).toFixed(2)
         });
 
-        curX += estimateTileWidth(w) + 10;
+        curX += estimateTileWidth(w) + 12;
       });
     });
 
     state.currentCursorLine = linesToLoad.length;
     renderBoard();
     renderInspector();
-    showToast(`📖 "${poem.title_bn}" বোর্ডে সাজানো হয়েছে!`);
   }
 
   function tidyBoardLayout() {
@@ -1002,16 +902,13 @@
         t.x = curX;
         t.y = curY;
         t.tilt = '0';
-        curX += estimateTileWidth(t.word) + 10;
+        curX += estimateTileWidth(t.word) + 12;
       });
     });
     renderBoard();
     showToast('📏 সব শব্দ লাইনে সুন্দর করে সাজানো হয়েছে!');
   }
 
-  // ==========================================================================
-  // 6. EXPORT POEM AS COLORFUL PNG IMAGE CARD
-  // ==========================================================================
   function exportPoemAsImage() {
     if (state.boardTiles.length === 0) {
       showToast('ছবি ডাউনলোড করার আগে বোর্ডে কিছু শব্দ দিয়ে ছড়া তৈরি করো!');
@@ -1023,11 +920,10 @@
     const ctx = canvas.getContext('2d');
 
     const width = 1000;
-    const height = Math.max(580, 200 + lines.length * 76);
+    const height = Math.max(560, 180 + lines.length * 76);
     canvas.width = width;
     canvas.height = height;
 
-    // Background based on active theme
     const grad = ctx.createLinearGradient(0, 0, width, height);
     if (state.boardTheme === 'theme-sky') {
       grad.addColorStop(0, '#0f172a');
@@ -1045,26 +941,12 @@
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, width, height);
 
-    // Decorative border
-    ctx.strokeStyle = state.boardTheme === 'theme-sky' ? '#6366f1' : '#cbd5e1';
-    ctx.lineWidth = 10;
-    ctx.strokeRect(16, 16, width - 32, height - 32);
-
-    // Header Title & Poet
     const isDark = state.boardTheme === 'theme-sky';
     ctx.fillStyle = isDark ? '#fde047' : '#312e81';
     ctx.font = 'bold 34px "Baloo Da 2", "Hind Siliguri", sans-serif';
-    const title = elPoemTitleInput.value.trim() || 'আমার বাংলা ছড়া';
+    const title = (elPoemTitleInput && elPoemTitleInput.value.trim()) || 'আমার বাংলা ছড়া';
     ctx.fillText(`🧲 ${title}`, 48, 72);
 
-    const author = elPoemAuthorInput.value.trim();
-    if (author) {
-      ctx.fillStyle = isDark ? '#cbd5e1' : '#475569';
-      ctx.font = '600 20px "Hind Siliguri", sans-serif';
-      ctx.fillText(`ছড়াকার: ${author}`, 52, 104);
-    }
-
-    // Draw each line of magnetic tiles
     const catColors = {
       pronoun_people: { bg: '#fff1f2', border: '#f43f5e', text: '#881337' },
       nature: { bg: '#eff6ff', border: '#3b82f6', text: '#1e3a8a' },
@@ -1078,7 +960,7 @@
 
     lines.forEach((lineObj, idx) => {
       let curX = 52;
-      const curY = 140 + idx * 72;
+      const curY = 120 + idx * 72;
 
       lineObj.tiles.forEach(t => {
         ctx.font = 'bold 24px "Baloo Da 2", "Hind Siliguri", sans-serif';
@@ -1091,13 +973,11 @@
         const boxH = state.showPhonetics ? 54 : 42;
         const col = catColors[t.category] || catColors.general;
 
-        // Shadow bevel
         ctx.fillStyle = col.border;
         ctx.beginPath();
         ctx.roundRect(curX, curY + 4, boxW, boxH, 10);
         ctx.fill();
 
-        // Main tile body
         ctx.fillStyle = col.bg;
         ctx.strokeStyle = col.border;
         ctx.lineWidth = 2;
@@ -1106,7 +986,6 @@
         ctx.fill();
         ctx.stroke();
 
-        // Bangla text
         ctx.fillStyle = col.text;
         ctx.font = 'bold 23px "Baloo Da 2", "Hind Siliguri", sans-serif';
         ctx.textAlign = 'center';
@@ -1123,21 +1002,13 @@
       });
     });
 
-    // Footer watermark
-    ctx.fillStyle = isDark ? '#94a3b8' : '#64748b';
-    ctx.font = '500 15px "Hind Siliguri", sans-serif';
-    ctx.fillText('ছড়ার চুম্বক • Bangla Magnetic Word Kit', 48, height - 34);
-
     const link = document.createElement('a');
-    link.download = `${(elPoemTitleInput.value.trim() || 'bangla_chora').replace(/\s+/g, '_')}.png`;
+    link.download = `${title.replace(/\s+/g, '_')}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
     showToast('📸 ছড়ার রঙিন ছবি ডাউনলোড হয়েছে!');
   }
 
-  // ==========================================================================
-  // 7. MODALS: TEMPLATES, ADD WORD, SAVED POEMS
-  // ==========================================================================
   function renderTemplatesModal() {
     const grid = document.getElementById('templatesGrid');
     if (!grid) return;
@@ -1154,14 +1025,14 @@
             <span class="tpl-icon">${poem.icon || '📜'}</span>
             <div>
               <div class="tpl-title-bn">${poem.title_bn}</div>
-              <div class="tpl-poet">${poem.poet} • ${poem.lines.length} লাইন</div>
+              <div class="tpl-poet">${poem.poet}</div>
             </div>
           </div>
           <div class="tpl-preview-lines" style="margin-top:8px;">${previewLines}</div>
         </div>
         <div class="tpl-actions">
           <button type="button" class="btn-tpl-load">🧲 বোর্ডে সাজাও</button>
-          <button type="button" class="btn-tpl-speak" title="প্রথম কয়েক লাইন শোনো">🔊 শোনো</button>
+          <button type="button" class="btn-tpl-speak">🔊 শোনো</button>
         </div>
       `;
 
@@ -1199,7 +1070,7 @@
     const previewContainer = document.getElementById('newWordFormsPreview');
 
     if (!bn) {
-      previewContainer.innerHTML = `<span class="muted-hint">উপরে একটি বাংলা শব্দ লিখলে তার বিভিন্ন রূপ এখানে দেখা যাবে...</span>`;
+      previewContainer.innerHTML = `<span style="color:#64748b; font-size:0.85rem;">উপরে বাংলা শব্দ লিখলে তার রূপ দেখা যাবে...</span>`;
       return;
     }
 
@@ -1208,10 +1079,7 @@
 
     if (cat === 'verbs') {
       const conj = Engine.conjugateVerb(bn);
-      const samples = [
-        conj.pres['আমি'], conj.pres['তুমি'], conj.pres['সে'],
-        conj.perf['আমি'], conj.perf['সে'], conj.past['সে'], conj.fut['আমি']
-      ];
+      const samples = [conj.pres['আমি'], conj.pres['তুমি'], conj.pres['সে'], conj.perf['আমি'], conj.perf['সে'], conj.fut['আমি']];
       Array.from(new Set(samples)).forEach(w => {
         const span = document.createElement('span');
         span.className = 'inflection-chip';
@@ -1220,7 +1088,7 @@
         previewContainer.appendChild(span);
       });
     } else {
-      const forms = Engine.getNounInflections(bn).slice(0, 8);
+      const forms = Engine.getNounInflections(bn).slice(0, 6);
       forms.forEach(f => {
         const span = document.createElement('span');
         span.className = 'inflection-chip';
@@ -1231,93 +1099,7 @@
     }
   }
 
-  function updateSavedPoemsBadge() {
-    const badge = document.getElementById('savedPoemsCount');
-    if (badge) badge.textContent = String(savedPoems.length);
-  }
-
-  function saveCurrentPoemToStorage() {
-    if (state.boardTiles.length === 0) {
-      showToast('সেভ করার আগে বোর্ডে কিছু শব্দ যোগ করো!');
-      return;
-    }
-    const lines = getStructuredPoemLinesFromBoard();
-    const poemRecord = {
-      id: 'saved_' + Date.now(),
-      title: elPoemTitleInput.value.trim() || 'আমার ছড়া',
-      author: elPoemAuthorInput.value.trim() || 'খুদে ছড়াকার',
-      createdAt: new Date().toLocaleDateString('bn-BD'),
-      preview: lines.map(l => l.text).join('\n'),
-      tiles: JSON.parse(JSON.stringify(state.boardTiles))
-    };
-    savedPoems.unshift(poemRecord);
-    localStorage.setItem(STORAGE_SAVED_POEMS, JSON.stringify(savedPoems));
-    updateSavedPoemsBadge();
-    showToast(`💾 "${poemRecord.title}" আমার খাতায় সেভ হয়েছে!`);
-  }
-
-  function renderSavedPoemsModal() {
-    const listEl = document.getElementById('savedPoemsList');
-    if (!listEl) return;
-    listEl.innerHTML = '';
-
-    if (savedPoems.length === 0) {
-      listEl.innerHTML = `<p style="color:#64748b; padding: 16px;">তোমার খাতায় এখনো কোনো ছড়া সেভ করা হয়নি। বোর্ডের উপরের <strong>💾 সেভ</strong> বাটনে ক্লিক করে ছড়া সংরক্ষণ করো!</p>`;
-      return;
-    }
-
-    savedPoems.forEach(sp => {
-      const card = document.createElement('div');
-      card.className = 'template-card';
-      card.innerHTML = `
-        <div>
-          <div class="tpl-head">
-            <span class="tpl-icon">📝</span>
-            <div>
-              <div class="tpl-title-bn">${sp.title}</div>
-              <div class="tpl-poet">${sp.author} • ${sp.createdAt}</div>
-            </div>
-          </div>
-          <div class="tpl-preview-lines" style="margin-top:8px; white-space:pre-line;">${sp.preview}</div>
-        </div>
-        <div class="tpl-actions">
-          <button type="button" class="btn-tpl-load">🧲 বোর্ডে লোড করো</button>
-          <button type="button" class="btn-tpl-speak">🔊 শোনো</button>
-          <button type="button" class="btn-mini btn-mini-danger btn-del-saved" title="মুছে ফেলো">🗑️</button>
-        </div>
-      `;
-
-      card.querySelector('.btn-tpl-load').addEventListener('click', () => {
-        pushUndo();
-        state.boardTiles = JSON.parse(JSON.stringify(sp.tiles));
-        elPoemTitleInput.value = sp.title;
-        elPoemAuthorInput.value = sp.author;
-        renderBoard();
-        renderInspector();
-        document.getElementById('modalSavedPoems').classList.add('hidden');
-        showToast(`📝 "${sp.title}" বোর্ডে লোড হয়েছে!`);
-      });
-
-      card.querySelector('.btn-tpl-speak').addEventListener('click', () => {
-        Engine.speakWord(sp.preview.replace(/\n/g, '। '));
-      });
-
-      card.querySelector('.btn-del-saved').addEventListener('click', () => {
-        savedPoems = savedPoems.filter(item => item.id !== sp.id);
-        localStorage.setItem(STORAGE_SAVED_POEMS, JSON.stringify(savedPoems));
-        updateSavedPoemsBadge();
-        renderSavedPoemsModal();
-      });
-
-      listEl.appendChild(card);
-    });
-  }
-
-  // ==========================================================================
-  // 8. EVENT LISTENERS & INITIALIZATION
-  // ==========================================================================
   function bindEvents() {
-    // Search input
     elWordSearchInput.addEventListener('input', () => {
       state.searchQuery = elWordSearchInput.value;
       elBtnClearSearch.classList.toggle('hidden', !state.searchQuery);
@@ -1331,7 +1113,6 @@
       renderWordBrowser();
     });
 
-    // Category tabs
     elCategoryTabs.addEventListener('click', (e) => {
       const btn = e.target.closest('.cat-tab');
       if (!btn) return;
@@ -1340,16 +1121,6 @@
       renderWordBrowser();
     });
 
-    // Alphabet filter strip
-    elLetterFilterBar.addEventListener('click', (e) => {
-      const btn = e.target.closest('.letter-btn');
-      if (!btn) return;
-      state.activeLetter = btn.dataset.letter || '';
-      elLetterFilterBar.querySelectorAll('.letter-btn').forEach(b => b.classList.toggle('active', b === btn));
-      renderWordBrowser();
-    });
-
-    // Quick punctuation & newline
     document.querySelectorAll('.sym-tile').forEach(btn => {
       btn.addEventListener('click', () => {
         const sym = btn.dataset.symbol;
@@ -1365,38 +1136,23 @@
 
     document.getElementById('btnNewLine').addEventListener('click', () => {
       state.currentCursorLine += 1;
-      showToast(`↵ নতুন লাইন (${state.currentCursorLine + 1} নং লাইন) শুরু হয়েছে`);
+      showToast(`↵ নতুন লাইন (${state.currentCursorLine + 1} নং লাইন)`);
     });
 
-    // Header Toggles
     const btnPhon = document.getElementById('btnTogglePhonetics');
-    btnPhon.addEventListener('click', () => {
-      state.showPhonetics = !state.showPhonetics;
-      document.body.classList.toggle('show-phonetics', state.showPhonetics);
-      btnPhon.classList.toggle('active', state.showPhonetics);
-      btnPhon.querySelector('strong').textContent = state.showPhonetics ? 'ON' : 'OFF';
-      renderBoard();
-    });
+    if (btnPhon) {
+      btnPhon.addEventListener('click', () => {
+        state.showPhonetics = !state.showPhonetics;
+        document.body.classList.toggle('show-phonetics', state.showPhonetics);
+        btnPhon.classList.toggle('active', state.showPhonetics);
+        btnPhon.querySelector('strong').textContent = state.showPhonetics ? 'ON' : 'OFF';
+        renderBoard();
+      });
+    }
 
-    const btnAutoSpeak = document.getElementById('btnToggleAutoSpeak');
-    btnAutoSpeak.addEventListener('click', () => {
-      state.autoSpeak = !state.autoSpeak;
-      btnAutoSpeak.classList.toggle('active', state.autoSpeak);
-      btnAutoSpeak.querySelector('strong').textContent = state.autoSpeak ? 'ON' : 'OFF';
-    });
-
-    const btnAutoAgree = document.getElementById('btnToggleAutoAgree');
-    btnAutoAgree.addEventListener('click', () => {
-      state.autoAgree = !state.autoAgree;
-      btnAutoAgree.classList.toggle('active', state.autoAgree);
-      btnAutoAgree.querySelector('strong').textContent = state.autoAgree ? 'ON' : 'OFF';
-    });
-
-    // Play / Stop Full Poem
     elBtnPlayPoem.addEventListener('click', playBoardPoemAloud);
     elBtnStopPoem.addEventListener('click', stopBoardPoemNarration);
 
-    // Theme Switcher
     document.querySelectorAll('.theme-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const theme = btn.dataset.theme;
@@ -1407,36 +1163,16 @@
       });
     });
 
-    // Board Tools
     document.getElementById('btnTidyBoard').addEventListener('click', tidyBoardLayout);
 
-    document.getElementById('btnAutoAgreeAll').addEventListener('click', () => {
-      pushUndo();
-      const maxL = state.boardTiles.reduce((m, t) => Math.max(m, t.lineIdx || 0), 0);
-      let changed = false;
-      for (let l = 0; l <= maxL; l++) {
-        if (harmonizeLineSubjectVerb(l)) changed = true;
-      }
-      renderBoard();
-      renderInspector();
-      if (!changed) {
-        showToast('🤝 সব লাইনের কর্তা ও ক্রিয়া ইতিমধ্যে মিল আছে!');
-      }
-    });
-
     document.getElementById('btnUndo').addEventListener('click', () => {
-      if (state.undoStack.length === 0) {
-        showToast('আর পেছনে যাওয়ার ধাপ নেই');
-        return;
-      }
-      const prev = state.undoStack.pop();
-      state.boardTiles = JSON.parse(prev);
+      if (state.undoStack.length === 0) return;
+      state.boardTiles = JSON.parse(state.undoStack.pop());
       state.selectedTileId = null;
       renderBoard();
       renderInspector();
     });
 
-    document.getElementById('btnSavePoem').addEventListener('click', saveCurrentPoemToStorage);
     document.getElementById('btnExportImage').addEventListener('click', exportPoemAsImage);
 
     document.getElementById('btnClearBoard').addEventListener('click', () => {
@@ -1448,14 +1184,10 @@
       state.currentCursorLine = 0;
       renderBoard();
       renderInspector();
-      showToast('🗑️ বোর্ড পরিষ্কার করা হয়েছে');
     });
 
-    // Empty state buttons
     document.getElementById('btnEmptyLoadSample').addEventListener('click', () => {
-      if (DATA.poems && DATA.poems.length > 0) {
-        loadPoemOntoBoard(DATA.poems[0], 'short');
-      }
+      if (DATA.poems && DATA.poems.length > 0) loadPoemOntoBoard(DATA.poems[0], 'short');
     });
 
     document.getElementById('btnEmptyAddStarter').addEventListener('click', () => {
@@ -1463,7 +1195,6 @@
       ['চাঁদ', 'মামা', 'আকাশে', 'হাসে'].forEach(w => addWordToBoard(w, { silent: true, lineIdx: 1 }));
     });
 
-    // Inspector Actions
     document.getElementById('btnInspSpeak').addEventListener('click', () => {
       const tile = state.boardTiles.find(t => t.id === state.selectedTileId);
       if (tile) Engine.speakWord(tile.word);
@@ -1471,14 +1202,7 @@
 
     document.getElementById('btnInspDuplicate').addEventListener('click', () => {
       const tile = state.boardTiles.find(t => t.id === state.selectedTileId);
-      if (tile) {
-        addWordToBoard(tile.word, {
-          category: tile.category,
-          baseWord: tile.baseWord,
-          ending: tile.ending,
-          lineIdx: tile.lineIdx
-        });
-      }
+      if (tile) addWordToBoard(tile.word, { category: tile.category, baseWord: tile.baseWord, ending: tile.ending, lineIdx: tile.lineIdx });
     });
 
     document.getElementById('btnInspDelete').addEventListener('click', () => {
@@ -1507,15 +1231,6 @@
       if (state.autoSpeak) Engine.speakWord(tile.word);
     });
 
-    document.getElementById('btnInspApplyCustom').addEventListener('click', () => {
-      const tile = state.boardTiles.find(t => t.id === state.selectedTileId);
-      const val = elInspCustomTextInput.value.trim();
-      if (tile && val) {
-        applyWordFormToTile(tile.id, val, tile.baseWord, tile.category);
-      }
-    });
-
-    // Inspector Tabs
     document.querySelectorAll('.insp-tab').forEach(btn => {
       btn.addEventListener('click', () => {
         state.inspectorTab = btn.dataset.insptab;
@@ -1523,7 +1238,6 @@
       });
     });
 
-    // Subject selector pills in Verb Agreement tab
     elSubjectPills.addEventListener('click', (e) => {
       const btn = e.target.closest('.subj-pill');
       if (!btn) return;
@@ -1531,7 +1245,6 @@
       renderInspector();
     });
 
-    // Quick Rhyme with last word button
     document.getElementById('btnQuickRhymeLast').addEventListener('click', () => {
       if (state.boardTiles.length === 0) {
         showToast('বোর্ডে অন্তত একটি শব্দ যোগ করো!');
@@ -1544,20 +1257,12 @@
       renderInspector();
     });
 
-    // Modals Open/Close
     document.getElementById('btnOpenTemplates').addEventListener('click', () => {
       renderTemplatesModal();
       document.getElementById('modalTemplates').classList.remove('hidden');
     });
 
-    document.getElementById('btnOpenAddWord').addEventListener('click', () => {
-      openAddWordModal('');
-    });
-
-    document.getElementById('btnOpenSavedPoems').addEventListener('click', () => {
-      renderSavedPoemsModal();
-      document.getElementById('modalSavedPoems').classList.remove('hidden');
-    });
+    document.getElementById('btnOpenAddWord').addEventListener('click', () => openAddWordModal(''));
 
     document.querySelectorAll('.btn-close-modal').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1572,7 +1277,6 @@
       });
     });
 
-    // Add Custom Word Form events
     const elNewWordBn = document.getElementById('newWordBn');
     const elNewWordCat = document.getElementById('newWordCategory');
     elNewWordBn.addEventListener('input', updateNewWordPreview);
@@ -1591,17 +1295,7 @@
       const c = elNewWordCat.value || 'general';
       const addDirectly = document.getElementById('chkAddDirectlyToBoard').checked;
 
-      const newEntry = {
-        w,
-        p,
-        c,
-        f: 10,
-        pop: true,
-        root: true,
-        ends: [],
-        isCustom: true
-      };
-
+      const newEntry = { w, p, c, f: 10, pop: true, root: true, ends: [], isCustom: true };
       customWords.unshift(newEntry);
       localStorage.setItem(STORAGE_CUSTOM_WORDS, JSON.stringify(customWords));
       DATA.words.unshift(newEntry);
@@ -1613,28 +1307,16 @@
       if (addDirectly) {
         addWordToBoard(w, { category: c, isEnding: c === 'endings' });
       }
-      showToast(`➕ "${w}" (${p}) শব্দের ঝুলিতে যোগ হয়েছে!`);
+      showToast(`➕ "${w}" (${p}) যোগ হয়েছে!`);
     });
   }
 
   function init() {
-    updateSavedPoemsBadge();
-    bindEvents();
     renderWordBrowser();
+    bindEvents();
 
-    // Load a cheerful 4-line starter Chora (আয় আয় চাঁদ মামা) on first visit
     if (DATA.poems && DATA.poems.length > 0) {
-      const starterPoem = {
-        ...DATA.poems[0],
-        lines: DATA.poems[0].lines.slice(0, 4)
-      };
-      loadPoemOntoBoard(starterPoem, 'short');
-      // Select the verb tile 'যা' or 'চাঁদ' to demonstrate the inspector
-      if (state.boardTiles.length >= 3) {
-        state.selectedTileId = state.boardTiles[2].id; // 'চাঁদ'
-        renderBoard();
-        renderInspector();
-      }
+      loadPoemOntoBoard(DATA.poems[0], 'short');
     } else {
       renderBoard();
       renderInspector();
