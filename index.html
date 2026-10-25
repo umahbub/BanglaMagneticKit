@@ -86,14 +86,14 @@
       <div class="panel-header">
         <!-- Primary 3-Button Mode Bar -->
         <div class="primary-mode-bar">
-          <button class="cat-tab active" data-cat="smart" id="tabSmartDefault">
-            ✨ পরের শব্দ (Suggested)
+          <button class="cat-tab active" data-cat="smart" id="tabSmartDefault" title="Suggested Next Words">
+            ✨ পরের শব্দ
           </button>
-          <button class="cat-tab" data-cat="endings" id="tabEndingsMain">
-            🧩 প্রত্যয় (-এ, -ছি, -টা)
+          <button class="cat-tab" data-cat="endings" id="tabEndingsMain" title="Suffixes & Endings (-এ, -ছি, -টা)">
+            🧩 প্রত্যয়
           </button>
-          <button type="button" id="btnToggleCatDrawer" class="btn-cat-drawer-toggle">
-            📂 বিষয় ও বর্ণ ▾ (Browse)
+          <button type="button" id="btnToggleCatDrawer" class="btn-cat-drawer-toggle" title="Browse Categories & Alphabet">
+            📂 বিষয় ▾
           </button>
         </div>
 
@@ -157,10 +157,10 @@
 
       <!-- Context Banner + Refresh More Words Button -->
       <div id="trayContextBanner" class="tray-context-banner">
-        <span id="trayContextText">✨ পরের সম্ভাব্য শব্দ (Suggested Next Words)</span>
-        <div style="display:flex; align-items:center; gap:6px;">
+        <span id="trayContextText">✨ পরের সম্ভাব্য শব্দ</span>
+        <div style="display:flex; align-items:center; gap:5px;">
           <span id="wordCountBadge" class="badge-count">24টি</span>
-          <button type="button" id="btnRefreshSmart" class="btn-refresh-smart" title="আরও নতুন শব্দ দেখো">🔄 আরও শব্দ (More)</button>
+          <button type="button" id="btnRefreshSmart" class="btn-refresh-smart" title="আরও নতুন শব্দ দেখো">🔄 আরও</button>
         </div>
       </div>
 
@@ -177,7 +177,7 @@
       </div>
     </aside>
 
-    <!-- RIGHT: Single-Line Toolbar + TOP Word Form/Rhyme Bar + Magnetic Board -->
+    <!-- CENTER: 100% Fixed Writing Work-Board (Never Shifts or Moves!) -->
     <section class="board-and-inspector">
 
       <!-- SINGLE-LINE TOOLBAR: Play + Speed + Align + Undo + Delete Word + Clear All -->
@@ -190,97 +190,21 @@
             <span>⏹️</span> থামাও
           </button>
           <select id="speechModeSelect" class="speed-select" title="ছড়া পড়ার ধরন (Reading Style)">
-            <option value="word-by-word" selected>🐢 প্রতিটি শব্দ ধীরে (Slow Word-by-Word)</option>
+            <option value="word-by-word" selected>🐢 প্রতিটি শব্দ ধীরে (Slow)</option>
             <option value="line-paced">🎶 লাইন ধরে (Line by Line)</option>
           </select>
         </div>
 
         <div class="toolbar-actions-group">
-          <button id="btnTidyBoard" class="btn-tool" title="লাইনে সুন্দর করে সাজাও (Align neatly)">📏 সাজাও (Align)</button>
+          <button id="btnTidyBoard" class="btn-tool" title="লাইনে সুন্দর করে সাজাও (Align neatly)">📏 সাজাও</button>
           <button id="btnUndo" class="btn-tool" title="আগের ধাপ (Undo)">↩️ Undo</button>
-          <button id="btnDeleteSelectedWord" class="btn-tool btn-delete-one" title="নির্বাচিত বা শেষের শব্দটি মুছুন (Delete selected or last word)">⌫ শব্দ মুছুন (Delete Word)</button>
+          <button id="btnDeleteSelectedWord" class="btn-tool btn-delete-one" title="নির্বাচিত বা শেষের শব্দটি মুছুন (Delete selected or last word)">⌫ শব্দ মুছুন</button>
           <button id="btnSavePoem" class="btn-tool" title="খাতায় সেভ করো (Save Poem)">💾 সেভ</button>
-          <button id="btnClearBoard" class="btn-tool btn-danger" title="পুরো বোর্ড খালি করো (Clear entire board)">🧹 সব মুছুন (Clear All)</button>
+          <button id="btnClearBoard" class="btn-tool btn-danger" title="পুরো বোর্ড খালি করো (Clear entire board)">🧹 সব মুছুন</button>
         </div>
       </div>
 
-      <!-- TOP WORD MAGIC BAR: Verb Agreement, Endings & Rhymes (Right at Eye Level — Never Cut Off!) -->
-      <div class="word-magic-bar" id="inspectorDock">
-        <!-- Shown when no word is selected on the board -->
-        <div id="inspectorPlaceholder" class="inspector-placeholder">
-          <span>🪄 <strong>শব্দের রূপ ও ছন্দ (Word Forms &amp; Rhymes):</strong> বোর্ডের যেকোনো শব্দে ক্লিক করলে এখানে তার <strong>ক্রিয়ার রূপ (আমি/তুমি/সে)</strong>, <strong>বিভক্তি (-টি, -গুলো, -এ)</strong> ও <strong>ছন্দ</strong> দেখা যাবে!</span>
-          <button id="btnQuickRhymeLast" class="btn-rhyme-helper">🎵 শেষ শব্দের ছন্দ মেলাও (Rhymes)</button>
-        </div>
-
-        <!-- Shown whenever a word on the board IS selected -->
-        <div id="inspectorActive" class="inspector-active hidden">
-          <!-- Top Row of Magic Bar: Selected Word + Speak + Mode Tabs + Actions -->
-          <div class="magic-bar-top-row">
-            <div class="selected-word-pill">
-              <span id="inspCategoryBadge" class="insp-cat-badge hidden">শব্দ</span>
-              <span id="inspWordBn" class="insp-word-bn">যা</span>
-              <span id="inspWordPhonetic" class="insp-word-phonetic">(ja)</span>
-              <button id="btnInspSpeak" class="btn-speak-mini" title="শব্দটির উচ্চারণ শোনো">🔊 শোনো</button>
-            </div>
-
-            <!-- 3 Clear Mode Tabs -->
-            <div class="insp-mode-tabs">
-              <button class="insp-tab active" data-insptab="verb">🏃 ক্রিয়ার রূপ (আমি/তুমি/সে)</button>
-              <button class="insp-tab" data-insptab="noun">🧩 বিভক্তি যোগ (-টি, -গুলো, -এ, -র)</button>
-              <button class="insp-tab" data-insptab="rhyme">🎵 ছন্দ মেলাও (Rhymes)</button>
-            </div>
-
-            <!-- Breakdown / Peel / Copy / Delete Word -->
-            <div class="magic-bar-right-actions">
-              <div id="inspMorphBreakdown" class="insp-morph-breakdown hidden">
-                <span id="inspMorphFormula">মাছ + এ</span>
-                <button id="btnInspPeelEnding" class="btn-peel" title="বিভক্তি আলাদা করো">✂️ মূল শব্দ</button>
-              </div>
-              <button id="btnInspDuplicate" class="btn-mini" title="এই শব্দটি আরেকটি কপি করো">📋 কপি</button>
-              <button id="btnInspDelete" class="btn-mini btn-mini-danger" title="এই শব্দটি মুছে ফেলো">🗑️ এই শব্দ মুছুন</button>
-              <button id="btnInspClose" class="btn-mini" title="বন্ধ করো">✕</button>
-            </div>
-          </div>
-
-          <!-- Bottom Row of Magic Bar: The Clickable Word Form / Rhyme Chips! -->
-          <div class="magic-bar-bottom-row">
-            <!-- Pane 1: Verb Forms by Subject -->
-            <div id="inspPaneVerb" class="insp-pane">
-              <div class="verb-flex-row">
-                <div class="subject-pills" id="subjectPills">
-                  <button class="subj-pill active" data-subj="আমি">আমি (I)</button>
-                  <button class="subj-pill" data-subj="তুমি">তুমি (You)</button>
-                  <button class="subj-pill" data-subj="তুই">তুই</button>
-                  <button class="subj-pill" data-subj="সে">সে / তারা (He/She)</button>
-                  <button class="subj-pill" data-subj="আপনি">আপনি</button>
-                </div>
-                <span class="arrow-sep">➔</span>
-                <div id="verbConjugationGrid" class="verb-conjugation-grid"></div>
-              </div>
-            </div>
-
-            <!-- Pane 2: Noun Endings -->
-            <div id="inspPaneNoun" class="insp-pane hidden">
-              <div class="noun-flex-row">
-                <div id="kitAttestedEndingsRow" class="kit-attested-inline hidden">
-                  <div id="kitAttestedChips" class="inflection-chips"></div>
-                </div>
-                <div id="nounInflectionChips" class="inflection-chips"></div>
-              </div>
-            </div>
-
-            <!-- Pane 3: Rhymes -->
-            <div id="inspPaneRhyme" class="insp-pane hidden">
-              <div class="rhyme-flex-row">
-                <span class="rhyme-label"><strong id="rhymeTargetLabel">যা</strong>-এর ছন্দ (ক্লিক করলে বোর্ডে যোগ হবে):</span>
-                <div id="rhymeResultsGrid" class="rhyme-results-grid"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Spacious Magnetic Board Area -->
+      <!-- Spacious Magnetic Board Area (Completely Fixed Position!) -->
       <div class="magnetic-board-container" id="magneticBoardContainer">
         <!-- Empty State -->
         <div id="boardEmptyState" class="board-empty-state hidden">
@@ -313,6 +237,83 @@
       </div>
 
     </section>
+
+    <!-- RIGHT COLUMN: Dedicated Word Options Sidebar (Verb Forms, Endings & Rhymes) -->
+    <aside class="word-inspector-sidebar" id="inspectorDock" aria-label="Word Forms and Rhymes">
+      <div class="sidebar-header-title">
+        <span>🪄 শব্দের রূপ ও ছন্দ (Word Options)</span>
+      </div>
+
+      <!-- Shown when no word is selected on the board -->
+      <div id="inspectorPlaceholder" class="inspector-placeholder">
+        <div class="placeholder-icon">👆</div>
+        <p>বোর্ডের যেকোনো শব্দের ওপর ক্লিক করলে এখানে তার <strong>ক্রিয়ার রূপ (আমি/তুমি/সে)</strong>, <strong>বিভক্তি (-টি, -গুলো, -এ)</strong> ও <strong>ছন্দ</strong> দেখা যাবে!</p>
+        <button id="btnQuickRhymeLast" class="btn-rhyme-helper">🎵 শেষ শব্দের ছন্দ মেলাও (Rhymes)</button>
+      </div>
+
+      <!-- Shown whenever a word on the board IS selected -->
+      <div id="inspectorActive" class="inspector-active hidden">
+        <!-- Selected Word Card -->
+        <div class="sidebar-word-card">
+          <div class="selected-word-pill">
+            <span id="inspCategoryBadge" class="insp-cat-badge hidden">শব্দ</span>
+            <span id="inspWordBn" class="insp-word-bn">যা</span>
+            <span id="inspWordPhonetic" class="insp-word-phonetic">(ja)</span>
+            <button id="btnInspSpeak" class="btn-speak-mini" title="শব্দটির উচ্চারণ শোনো">🔊 শোনো</button>
+          </div>
+
+          <div id="inspMorphBreakdown" class="insp-morph-breakdown hidden">
+            <span id="inspMorphFormula">মাছ + এ</span>
+            <button id="btnInspPeelEnding" class="btn-peel" title="বিভক্তি আলাদা করো">✂️ মূল শব্দ</button>
+          </div>
+
+          <div class="magic-bar-right-actions">
+            <button id="btnInspDuplicate" class="btn-mini" title="এই শব্দটি আরেকটি কপি করো">📋 কপি</button>
+            <button id="btnInspDelete" class="btn-mini btn-mini-danger" title="এই শব্দটি মুছে ফেলো">🗑️ শব্দ মুছুন</button>
+            <button id="btnInspClose" class="btn-mini" style="flex:0 0 30px;" title="বন্ধ করো">✕</button>
+          </div>
+        </div>
+
+        <!-- 3 Clear Mode Tabs -->
+        <div class="insp-mode-tabs">
+          <button class="insp-tab active" data-insptab="verb">🏃 ক্রিয়া (Verb)</button>
+          <button class="insp-tab" data-insptab="noun">🧩 বিভক্তি (-এ/-টা)</button>
+          <button class="insp-tab" data-insptab="rhyme">🎵 ছন্দ (Rhyme)</button>
+        </div>
+
+        <!-- Scrollable Options Area inside Right Column -->
+        <div class="sidebar-panes-scroll">
+          <!-- Pane 1: Verb Forms by Subject -->
+          <div id="inspPaneVerb" class="insp-pane">
+            <div class="sidebar-sub-label">কর্তা বেছে নাও (Pick Subject):</div>
+            <div class="subject-pills" id="subjectPills">
+              <button class="subj-pill active" data-subj="আমি">আমি (I)</button>
+              <button class="subj-pill" data-subj="তুমি">তুমি (You)</button>
+              <button class="subj-pill" data-subj="তুই">তুই</button>
+              <button class="subj-pill" data-subj="সে">সে / তারা</button>
+              <button class="subj-pill" data-subj="আপনি">আপনি</button>
+            </div>
+            <div class="sidebar-sub-label" style="margin-top:8px;">ক্লিক করলে বোর্ডের শব্দটি বদলে যাবে:</div>
+            <div id="verbConjugationGrid" class="verb-conjugation-grid"></div>
+          </div>
+
+          <!-- Pane 2: Noun Endings -->
+          <div id="inspPaneNoun" class="insp-pane hidden">
+            <div class="sidebar-sub-label">শব্দের শেষে বিভক্তি যোগ করো:</div>
+            <div id="kitAttestedEndingsRow" class="kit-attested-inline hidden" style="margin-bottom:6px;">
+              <div id="kitAttestedChips" class="inflection-chips"></div>
+            </div>
+            <div id="nounInflectionChips" class="inflection-chips"></div>
+          </div>
+
+          <!-- Pane 3: Rhymes -->
+          <div id="inspPaneRhyme" class="insp-pane hidden">
+            <div class="sidebar-sub-label"><strong id="rhymeTargetLabel">যা</strong>-এর ছন্দ (ক্লিক করলে বোর্ডে যোগ হবে):</div>
+            <div id="rhymeResultsGrid" class="rhyme-results-grid"></div>
+          </div>
+        </div>
+      </div>
+    </aside>
   </main>
 
   <!-- MODAL 1: Classic Chora Picker -->

@@ -157,8 +157,8 @@
       const isDrawerCat = (cat !== 'smart' && cat !== 'endings');
       elBtnToggleCatDrawer.classList.toggle('open', isDrawerCat);
       elBtnToggleCatDrawer.textContent = isDrawerCat
-        ? `${CATEGORY_LABELS[cat] || '📂 ক্যাটাগরি'} ▾`
-        : '📂 সব ক্যাটাগরি ও বর্ণ ▾';
+        ? `${CATEGORY_LABELS[cat] || '📂 বিষয়'} ▾`
+        : '📂 বিষয় ▾';
     }
   }
 
