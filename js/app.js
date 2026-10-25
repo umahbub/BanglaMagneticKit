@@ -481,6 +481,7 @@
     };
 
     state.boardTiles.push(newTile);
+    state.selectedTileId = newTile.id;
     state.currentCursorLine = pos.lineIdx;
     state.smartOffset = 0;
 
@@ -613,17 +614,55 @@
       const displayWord = tile.isEnding ? `-${tile.word}` : tile.word;
 
       el.innerHTML = `
+        <button type="button" class="tile-delete-x" title="এই শব্দটি মুছে ফেলো (Delete this word)">✕</button>
         <div class="tile-text-col">
           <span class="tile-bn">${displayWord}</span>
           <span class="tile-phonetic">${ph}</span>
         </div>
       `;
 
+      const delBtn = el.querySelector('.tile-delete-x');
+      if (delBtn) {
+        delBtn.addEventListener('pointerdown', (ev) => {
+          ev.stopPropagation();
+        });
+        delBtn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          deleteSingleBoardTile(tile.id);
+        });
+      }
+
       setupBoardTileDrag(el, tile);
       frag.appendChild(el);
     });
 
     elBoardTilesLayer.appendChild(frag);
+  }
+
+  function deleteSingleBoardTile(tileId) {
+    if (state.boardTiles.length === 0) {
+      showToast('বোর্ডে মোছার মতো কোনো শব্দ নেই!');
+      return;
+    }
+    const targetId = tileId || state.selectedTileId || state.boardTiles[state.boardTiles.length - 1].id;
+    const targetTile = state.boardTiles.find(t => t.id === targetId);
+    if (!targetTile) return;
+
+    pushUndo();
+    const removedWord = targetTile.word;
+    state.boardTiles = state.boardTiles.filter(t => t.id !== targetId);
+
+    // Select the new last tile on the board so the top Magic Bar stays helpful
+    if (state.boardTiles.length > 0) {
+      state.selectedTileId = state.boardTiles[state.boardTiles.length - 1].id;
+    } else {
+      state.selectedTileId = null;
+    }
+
+    renderBoard();
+    renderInspector();
+    if (state.activeCategory === 'smart') renderWordBrowser();
+    showToast(`⌫ "${removedWord}" শব্দটি মোছা হয়েছে (Undo দিয়ে ফিরিয়ে আনা যাবে)`);
   }
 
   function setupBoardTileDrag(el, tile) {
@@ -981,6 +1020,14 @@
     });
 
     state.currentCursorLine = Math.max(0, linesToLoad.length - 1);
+
+    // Auto-select a verb tile (or the last word of line 1) so the Top Word Magic Bar
+    // immediately displays Verb Forms, Suffix Endings, and Rhymes at eye level!
+    if (state.boardTiles.length > 0) {
+      const verbTile = state.boardTiles.find(t => t.category === 'verbs' || Engine.SURFACE_TO_VERB_ROOT[t.word]);
+      state.selectedTileId = (verbTile || state.boardTiles[state.boardTiles.length - 1]).id;
+    }
+
     renderBoard();
     renderInspector();
     if (state.activeCategory === 'smart') renderWordBrowser();
@@ -1016,9 +1063,10 @@
       return;
     }
     const lines = getStructuredPoemLinesFromBoard();
+    const firstLineTitle = (lines[0] && lines[0].text) ? lines[0].text.slice(0, 28) : 'আমার ছড়া';
     const poemRecord = {
       id: 'saved_' + Date.now(),
-      title: (elPoemTitleInput && elPoemTitleInput.value.trim()) || 'আমার ছড়া',
+      title: (elPoemTitleInput && elPoemTitleInput.value.trim()) || firstLineTitle,
       author: (elPoemAuthorInput && elPoemAuthorInput.value.trim()) || 'খুদে ছড়াকার',
       createdAt: new Date().toLocaleDateString('bn-BD'),
       preview: lines.map(l => l.text).join('\n'),
@@ -1448,11 +1496,18 @@
     document.getElementById('btnUndo').addEventListener('click', () => {
       if (state.undoStack.length === 0) return;
       state.boardTiles = JSON.parse(state.undoStack.pop());
-      state.selectedTileId = null;
+      state.selectedTileId = state.boardTiles.length > 0 ? state.boardTiles[state.boardTiles.length - 1].id : null;
       renderBoard();
       renderInspector();
       if (state.activeCategory === 'smart') renderWordBrowser();
     });
+
+    const btnDeleteSelectedWord = document.getElementById('btnDeleteSelectedWord');
+    if (btnDeleteSelectedWord) {
+      btnDeleteSelectedWord.addEventListener('click', () => {
+        deleteSingleBoardTile(state.selectedTileId);
+      });
+    }
 
     document.getElementById('btnExportImage').addEventListener('click', () => {
       if (elMoreDropdown) elMoreDropdown.classList.add('hidden');
@@ -1461,6 +1516,10 @@
 
     document.getElementById('btnClearBoard').addEventListener('click', () => {
       if (state.boardTiles.length === 0) return;
+      if (state.boardTiles.length > 1) {
+        const ok = window.confirm('তুমি কি পুরো বোর্ডের সবগুলো শব্দ মুছে ফেলতে চাও?\n(একটি শব্দ মুছতে চাইলে "⌫ শব্দ মুছুন" বাটনে ক্লিক করো।)');
+        if (!ok) return;
+      }
       pushUndo();
       stopBoardPoemNarration();
       state.boardTiles = [];
@@ -1492,12 +1551,7 @@
 
     document.getElementById('btnInspDelete').addEventListener('click', () => {
       if (!state.selectedTileId) return;
-      pushUndo();
-      state.boardTiles = state.boardTiles.filter(t => t.id !== state.selectedTileId);
-      state.selectedTileId = null;
-      renderBoard();
-      renderInspector();
-      if (state.activeCategory === 'smart') renderWordBrowser();
+      deleteSingleBoardTile(state.selectedTileId);
     });
 
     document.getElementById('btnInspClose').addEventListener('click', () => {
