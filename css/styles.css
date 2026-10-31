@@ -503,6 +503,8 @@ body {
   flex: 1 1 auto;
   min-height: 220px;
   overflow-y: auto;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
   padding: 8px;
   display: flex;
   flex-wrap: wrap;
@@ -1159,7 +1161,8 @@ body.theme-notebook .magnetic-board-container {
   position: relative;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 20px 28px;
+  -webkit-overflow-scrolling: touch;
+  padding: 0;
 }
 
 .board-line-guides {
@@ -1170,8 +1173,8 @@ body.theme-notebook .magnetic-board-container {
 
 .board-line-guide {
   position: absolute;
-  left: 24px;
-  right: 24px;
+  left: 20px;
+  right: 14px;
   height: 70px;
   border-bottom: 1.5px dashed rgba(148, 163, 184, 0.35);
   display: flex;
@@ -1180,9 +1183,9 @@ body.theme-notebook .magnetic-board-container {
 
 .line-number-tag {
   font-family: var(--font-en);
-  font-size: 0.78rem;
-  color: rgba(100, 116, 139, 0.45);
-  margin-left: -14px;
+  font-size: 0.76rem;
+  color: rgba(100, 116, 139, 0.48);
+  margin-left: -13px;
 }
 
 .board-tiles-layer {
@@ -1614,17 +1617,290 @@ body.theme-notebook .magnetic-board-container {
   margin-top: 6px;
 }
 
+/* Mobile Panel Switcher — Hidden on Desktop (> 960px) */
+.mobile-panel-switcher {
+  display: none;
+}
+
+/* ==========================================================================
+   TABLET & MOBILE RESPONSIVE DESIGN
+   ========================================================================== */
 @media (max-width: 960px) {
   .workspace-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 10px 16px;
+    min-height: auto;
+  }
+
+  /* 1. Put the Poem Writing Board FIRST at the top so kids see their poem right away */
+  .board-and-inspector {
+    order: 1;
+    height: auto;
+    min-height: 0;
+  }
+
+  .magnetic-board-container {
+    height: 40vh;
+    min-height: 240px;
+    max-height: 360px;
+    flex: none;
+  }
+
+  /* 2. Put the 2-Tab Switcher right below the Writing Board */
+  .mobile-panel-switcher {
+    order: 2;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    background: #ffffff;
+    padding: 5px;
+    border-radius: 14px;
+    border: 2px solid var(--border-soft);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+  }
+
+  .mob-switch-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1.5px solid transparent;
+    background: #f8fafc;
+    font-family: var(--font-bn-display);
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.14s;
+  }
+
+  .mob-switch-btn.active {
+    background: #4f46e5;
+    border-color: #4338ca;
+    color: #ffffff;
+    box-shadow: 0 3px 8px rgba(79, 70, 229, 0.28);
+  }
+
+  .mob-word-badge {
+    background: #fef3c7;
+    color: #92400e;
+    padding: 1px 8px;
+    border-radius: 99px;
+    font-size: 0.82rem;
+    font-weight: 800;
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* 3. Show either Word Tray OR Word Options directly underneath the Switcher */
+  .word-browser-panel {
+    order: 3;
+    height: 44vh;
+    min-height: 290px;
+    max-height: 420px;
+  }
+
+  .word-inspector-sidebar {
+    order: 3;
+    display: none;
+    height: 44vh;
+    min-height: 290px;
+    max-height: 420px;
+  }
+
+  .workspace-grid.mob-view-inspector .word-browser-panel {
+    display: none;
+  }
+
+  .workspace-grid.mob-view-inspector .word-inspector-sidebar {
+    display: flex;
+  }
+}
+
+@media (max-width: 640px) {
+  .hide-on-mobile {
+    display: none !important;
+  }
+
+  .app-header {
+    padding: 6px 10px;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .logo-emoji {
+    width: 32px;
+    height: 32px;
+    font-size: 1.3rem;
+  }
+
+  .logo-texts h1 {
+    font-size: 1.12rem;
+  }
+
+  .brand-en {
+    display: none;
+  }
+
+  .header-controls {
+    gap: 5px;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .btn-action {
+    flex: 1 1 auto;
+    justify-content: center;
+    padding: 5px 8px;
+    font-size: 0.8rem;
+    border-radius: 9px;
+    border-bottom-width: 3px;
+  }
+
+  /* Keep Options Dropdown fully inside mobile screen */
+  .more-options-dropdown {
+    position: fixed;
+    top: 86px;
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-width: calc(100vw - 20px);
+  }
+
+  .board-toolbar {
+    padding: 6px 8px;
+    gap: 6px;
+  }
+
+  .toolbar-play-group,
+  .toolbar-actions-group {
+    gap: 5px;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .btn-play-poem {
+    padding: 5px 12px;
+    font-size: 0.86rem;
+  }
+
+  .speed-select {
+    flex: 1;
+    padding: 4px 6px;
+    font-size: 0.78rem;
+    min-width: 0;
+  }
+
+  .btn-tool {
+    flex: 1 1 auto;
+    text-align: center;
+    padding: 5px 7px;
+    font-size: 0.76rem;
+  }
+
+  .magnetic-board-container {
+    border-width: 3.5px;
+    border-radius: 14px;
+    height: 37vh;
+    min-height: 220px;
+  }
+
+  .board-line-guide {
+    left: 14px;
+    right: 10px;
+  }
+
+  /* Slightly more compact board tiles on phones so 3-5 words fit per line */
+  .board-tile {
+    padding: 4px 10px;
+    border-radius: 9px;
+    border-bottom-width: 3.5px;
+  }
+
+  .board-tile .tile-bn {
+    font-size: 1.05rem;
+  }
+
+  .board-tile .tile-phonetic {
+    font-size: 0.65rem;
+  }
+
+  .board-empty-state {
+    padding: 14px;
+  }
+
+  .board-empty-state h3 {
+    font-size: 1.08rem;
+  }
+
+  .empty-actions {
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .live-narration-bar {
+    width: calc(100% - 20px);
+    padding: 7px 12px;
+    bottom: 8px;
+  }
+
+  .narration-bn {
+    font-size: 1rem;
+  }
+
+  .narration-en {
+    font-size: 0.76rem;
+  }
+
+  .board-toast {
+    width: max-content;
+    max-width: calc(100% - 20px);
+    font-size: 0.8rem;
+    padding: 6px 12px;
+    text-align: center;
+  }
+
+  /* Modals on Mobile */
+  .modal-backdrop {
+    padding: 8px;
+  }
+
+  .modal-card {
+    max-height: 92vh;
+    border-radius: 14px;
+  }
+
+  .modal-header {
+    padding: 10px 14px;
+  }
+
+  .modal-header h2 {
+    font-size: 1.05rem;
+  }
+
+  .modal-body {
+    padding: 12px 14px;
+  }
+
+  .template-mode-bar {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .form-row-2col {
     grid-template-columns: 1fr;
   }
-  .word-browser-panel {
-    height: 360px;
-  }
-  .board-and-inspector {
-    height: 480px;
-  }
-  .word-inspector-sidebar {
-    height: 360px;
+
+  .form-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
   }
 }

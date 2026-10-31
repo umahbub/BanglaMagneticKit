@@ -25,20 +25,20 @@
 
     <div class="header-controls">
       <button id="btnOpenTemplates" class="btn-action btn-templates" title="Load a classic Bangla rhyme">
-        <span>📖</span> ছড়ার ঝুলি (20 Choras)
+        <span>📖</span> ছড়ার ঝুলি <span class="hide-on-mobile">(20 Choras)</span>
       </button>
 
       <button id="btnOpenAddWord" class="btn-action btn-add-word" title="Add your own Bangla word">
-        <span>➕</span> নতুন শব্দ (Add Word)
+        <span>➕</span> নতুন শব্দ <span class="hide-on-mobile">(Add Word)</span>
       </button>
 
       <button id="btnOpenSavedPoems" class="btn-action btn-saved" title="Save or load your poems">
-        <span>💾</span> আমার খাতা (<span id="savedPoemsCount">0</span>)
+        <span>💾</span> <span class="hide-on-mobile">আমার </span>খাতা (<span id="savedPoemsCount">0</span>)
       </button>
 
       <div class="more-menu-wrap">
         <button id="btnToggleMoreMenu" class="btn-action btn-more-options" title="More Settings & Options">
-          <span>⚙️</span> অপশন (Options ▾)
+          <span>⚙️</span> অপশন <span class="hide-on-mobile">(Options ▾)</span>
         </button>
 
         <div id="moreOptionsDropdown" class="more-options-dropdown hidden">
@@ -184,20 +184,20 @@
       <div class="board-toolbar">
         <div class="toolbar-play-group">
           <button id="btnPlayPoem" class="btn-play-poem" title="পুরো ছড়াটি স্পষ্ট উচ্চারণে শোনো">
-            <span>▶️</span> ছড়া শোনো (Play)
+            <span>▶️</span> ছড়া শোনো <span class="hide-on-mobile">(Play)</span>
           </button>
           <button id="btnStopPoem" class="btn-stop-poem hidden" title="থামাও (Stop)">
             <span>⏹️</span> থামাও
           </button>
           <select id="speechModeSelect" class="speed-select" title="ছড়া পড়ার ধরন (Reading Style)">
-            <option value="word-by-word" selected>🐢 প্রতিটি শব্দ ধীরে (Slow)</option>
-            <option value="line-paced">🎶 লাইন ধরে (Line by Line)</option>
+            <option value="word-by-word" selected>🐢 প্রতিটি শব্দ ধীরে</option>
+            <option value="line-paced">🎶 লাইন ধরে</option>
           </select>
         </div>
 
         <div class="toolbar-actions-group">
           <button id="btnTidyBoard" class="btn-tool" title="লাইনে সুন্দর করে সাজাও (Align neatly)">📏 সাজাও</button>
-          <button id="btnUndo" class="btn-tool" title="আগের ধাপ (Undo)">↩️ Undo</button>
+          <button id="btnUndo" class="btn-tool" title="আগের ধাপ (Undo)">↩️ <span class="hide-on-mobile">Undo</span></button>
           <button id="btnDeleteSelectedWord" class="btn-tool btn-delete-one" title="নির্বাচিত বা শেষের শব্দটি মুছুন (Delete selected or last word)">⌫ শব্দ মুছুন</button>
           <button id="btnSavePoem" class="btn-tool" title="খাতায় সেভ করো (Save Poem)">💾 সেভ</button>
           <button id="btnClearBoard" class="btn-tool btn-danger" title="পুরো বোর্ড খালি করো (Clear entire board)">🧹 সব মুছুন</button>
@@ -237,6 +237,16 @@
       </div>
 
     </section>
+
+    <!-- MOBILE ONLY: Quick Switcher between Word Magnets & Word Forms/Rhymes right below the Board -->
+    <div class="mobile-panel-switcher" id="mobilePanelSwitcher" role="tablist" aria-label="Mobile Panel Switcher">
+      <button type="button" id="btnMobTabWords" class="mob-switch-btn active" data-mobtab="words">
+        🧲 শব্দের ঝুলি (Words)
+      </button>
+      <button type="button" id="btnMobTabInspector" class="mob-switch-btn" data-mobtab="inspector">
+        🪄 রূপ ও ছন্দ <span id="mobSelectedWordBadge" class="mob-word-badge">যা</span>
+      </button>
+    </div>
 
     <!-- RIGHT COLUMN: Dedicated Word Options Sidebar (Verb Forms, Endings & Rhymes) -->
     <aside class="word-inspector-sidebar" id="inspectorDock" aria-label="Word Forms and Rhymes">

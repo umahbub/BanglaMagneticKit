@@ -46,14 +46,38 @@
     selectedSubject: 'আমি',
     undoStack: [],
     currentCursorLine: 0,
-    isPlayingPoem: false
+    isPlayingPoem: false,
+    mobileTab: 'words'
   };
 
-  const LINE_HEIGHT = 70;
-  const LINE_TOP_OFFSET = 22;
-  const LINE_LEFT_START = 34;
+  function isMobileViewport() {
+    return window.innerWidth <= 640;
+  }
+
+  function getLineHeight() {
+    return isMobileViewport() ? 58 : 70;
+  }
+
+  function getLineTopOffset() {
+    return isMobileViewport() ? 14 : 20;
+  }
+
+  function getLineLeftStart() {
+    return isMobileViewport() ? 18 : 28;
+  }
+
+  function getTileGap() {
+    return isMobileViewport() ? 8 : 11;
+  }
+
+  const measureCanvas = document.createElement('canvas');
+  const measureCtx = measureCanvas.getContext('2d');
 
   // DOM Elements
+  const elWorkspaceGrid = document.querySelector('.workspace-grid');
+  const elBtnMobTabWords = document.getElementById('btnMobTabWords');
+  const elBtnMobTabInspector = document.getElementById('btnMobTabInspector');
+  const elMobSelectedWordBadge = document.getElementById('mobSelectedWordBadge');
   const elWordTray = document.getElementById('wordTray');
   const elWordCountBadge = document.getElementById('wordCountBadge');
   const elWordSearchInput = document.getElementById('wordSearchInput');
@@ -360,15 +384,23 @@
         }
       };
 
-      const onPointerUp = (upEv) => {
+      const cleanupDrag = () => {
         window.removeEventListener('pointermove', onPointerMove);
         window.removeEventListener('pointerup', onPointerUp);
+        window.removeEventListener('pointercancel', onPointerCancel);
         clearFusionHighlights();
-
         if (ghostEl) {
           ghostEl.remove();
           ghostEl = null;
         }
+      };
+
+      const onPointerCancel = () => {
+        cleanupDrag();
+      };
+
+      const onPointerUp = (upEv) => {
+        cleanupDrag();
 
         if (hasMoved) {
           const boardRect = elBoard.getBoundingClientRect();
@@ -385,14 +417,19 @@
                 return;
               }
             }
-            const dropX = Math.max(20, upEv.clientX - boardRect.left + elBoard.scrollLeft - 40);
-            const dropY = Math.max(14, upEv.clientY - boardRect.top + elBoard.scrollTop - 22);
-            const lineIdx = Math.max(0, Math.round((dropY - LINE_TOP_OFFSET) / LINE_HEIGHT));
+            const lineH = getLineHeight();
+            const topOff = getLineTopOffset();
+            const estW = estimateTileWidth(word);
+            const maxDropX = Math.max(12, (elBoard.clientWidth || 320) - estW - 12);
+            const rawDropX = upEv.clientX - boardRect.left - Math.round(estW / 2);
+            const dropX = Math.max(12, Math.min(rawDropX, maxDropX));
+            const dropY = Math.max(10, upEv.clientY - boardRect.top + elBoard.scrollTop - 22);
+            const lineIdx = Math.max(0, Math.round((dropY - topOff) / lineH));
             addWordToBoard(word, {
               category,
               isEnding,
               x: dropX,
-              y: LINE_TOP_OFFSET + lineIdx * LINE_HEIGHT,
+              y: topOff + lineIdx * lineH,
               lineIdx
             });
           }
@@ -410,23 +447,32 @@
 
       window.addEventListener('pointermove', onPointerMove);
       window.addEventListener('pointerup', onPointerUp);
+      window.addEventListener('pointercancel', onPointerCancel);
     });
   }
 
   // ==========================================================================
-  // 2. MAGNETIC BOARD MANAGEMENT
+  // 2. MAGNETIC BOARD MANAGEMENT & IN-BOUNDS AUTO-WRAPPING
   // ==========================================================================
+  function getBoardMaxRight() {
+    const w = elBoard ? elBoard.clientWidth : 0;
+    return Math.max(190, (w || 340) - 10);
+  }
+
   function renderLineGuides() {
     if (!elBoardLineGuides) return;
     elBoardLineGuides.innerHTML = '';
-    const maxLine = state.boardTiles.reduce((m, t) => Math.max(m, t.lineIdx || 0), 6);
-    const totalLines = Math.max(8, maxLine + 3);
-    elBoardTilesLayer.style.minHeight = `${(totalLines + 1) * LINE_HEIGHT + 40}px`;
+    const lineH = getLineHeight();
+    const topOff = getLineTopOffset();
+    const maxLine = state.boardTiles.reduce((m, t) => Math.max(m, t.lineIdx || 0), 5);
+    const totalLines = Math.max(7, maxLine + 3);
+    elBoardTilesLayer.style.minHeight = `${(totalLines + 1) * lineH + 36}px`;
 
     for (let i = 0; i < totalLines; i++) {
       const row = document.createElement('div');
       row.className = 'board-line-guide';
-      row.style.top = `${LINE_TOP_OFFSET + i * LINE_HEIGHT - 8}px`;
+      row.style.top = `${topOff + i * lineH - 6}px`;
+      row.style.height = `${lineH}px`;
       row.innerHTML = `<span class="line-number-tag">${i + 1}</span>`;
       elBoardLineGuides.appendChild(row);
     }
@@ -434,29 +480,53 @@
 
   function estimateTileWidth(word) {
     const ph = Engine.transliterate(word);
-    const charLen = Math.max(word.length * 16, state.showPhonetics ? ph.length * 9 : 0);
-    return Math.max(68, charLen + 38);
+    const mobile = isMobileViewport();
+    if (measureCtx) {
+      measureCtx.font = mobile
+        ? '700 17px "Baloo Da 2", "Hind Siliguri", sans-serif'
+        : '700 20px "Baloo Da 2", "Hind Siliguri", sans-serif';
+      const bnW = measureCtx.measureText(word).width;
+      let phW = 0;
+      if (state.showPhonetics) {
+        measureCtx.font = mobile
+          ? '500 10.5px "Fredoka", sans-serif'
+          : '500 12px "Fredoka", sans-serif';
+        phW = measureCtx.measureText(ph).width;
+      }
+      const padBorder = mobile ? 24 : 32;
+      return Math.max(mobile ? 48 : 58, Math.ceil(Math.max(bnW, phW) + padBorder + 4));
+    }
+    const charLen = Math.max(word.length * 14, state.showPhonetics ? ph.length * 8 : 0);
+    return Math.max(58, charLen + 32);
   }
 
-  function getNextPositionForLine(lineIdx) {
+  function getNextPositionForLine(lineIdx, nextWord = '') {
+    const lineH = getLineHeight();
+    const topOff = getLineTopOffset();
+    const leftStart = getLineLeftStart();
+    const gap = getTileGap();
+    const maxRight = getBoardMaxRight();
+    const neededW = nextWord ? estimateTileWidth(nextWord) : 72;
+
     const tilesOnLine = state.boardTiles.filter(t => t.lineIdx === lineIdx);
     if (tilesOnLine.length === 0) {
-      return { x: LINE_LEFT_START, y: LINE_TOP_OFFSET + lineIdx * LINE_HEIGHT, lineIdx };
+      return { x: leftStart, y: topOff + lineIdx * lineH, lineIdx };
     }
-    let maxRight = LINE_LEFT_START;
+    let curRight = leftStart;
     tilesOnLine.forEach(t => {
-      const w = estimateTileWidth(t.word);
-      if (t.x + w + 12 > maxRight) {
-        maxRight = t.x + w + 12;
+      const domEl = elBoardTilesLayer ? elBoardTilesLayer.querySelector(`.board-tile[data-id="${t.id}"]`) : null;
+      const w = (domEl && domEl.offsetWidth) ? domEl.offsetWidth : estimateTileWidth(t.word);
+      if (t.x + w + gap > curRight) {
+        curRight = t.x + w + gap;
       }
     });
-    const boardWidth = Math.max(520, elBoard.clientWidth - 50);
-    if (maxRight > boardWidth - 80) {
+
+    if (curRight + neededW > maxRight) {
       const nextLine = lineIdx + 1;
       state.currentCursorLine = nextLine;
-      return getNextPositionForLine(nextLine);
+      return getNextPositionForLine(nextLine, nextWord);
     }
-    return { x: maxRight, y: LINE_TOP_OFFSET + lineIdx * LINE_HEIGHT, lineIdx };
+    return { x: curRight, y: topOff + lineIdx * lineH, lineIdx };
   }
 
   function addWordToBoard(word, opts = {}) {
@@ -465,7 +535,7 @@
     const lineIdx = opts.lineIdx !== undefined ? opts.lineIdx : state.currentCursorLine;
     const pos = (opts.x !== undefined && opts.y !== undefined)
       ? { x: opts.x, y: opts.y, lineIdx }
-      : getNextPositionForLine(lineIdx);
+      : getNextPositionForLine(lineIdx, word);
 
     const newTile = {
       id: 'tile_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
@@ -637,6 +707,102 @@
     });
 
     elBoardTilesLayer.appendChild(frag);
+    ensureAllBoardTilesInBounds();
+  }
+
+  let pendingBoundsFrame = null;
+  function ensureAllBoardTilesInBounds() {
+    if (!elBoard || !elBoardTilesLayer || state.boardTiles.length === 0) return;
+    const boardW = elBoard.clientWidth;
+    if (boardW < 100) {
+      if (!pendingBoundsFrame) {
+        pendingBoundsFrame = requestAnimationFrame(() => {
+          pendingBoundsFrame = null;
+          ensureAllBoardTilesInBounds();
+        });
+      }
+      return;
+    }
+
+    const maxRight = boardW - 8;
+    const leftStart = getLineLeftStart();
+    const lineH = getLineHeight();
+    const topOff = getLineTopOffset();
+    const gap = getTileGap();
+
+    const domMap = new Map();
+    const widthMap = new Map();
+    elBoardTilesLayer.querySelectorAll('.board-tile').forEach(el => {
+      const id = el.dataset.id;
+      domMap.set(id, el);
+      widthMap.set(id, el.offsetWidth || 68);
+    });
+
+    // Check if any tile on the board is clipped / out-of-bounds horizontally or above top
+    const hasOutOfBounds = state.boardTiles.some(t => {
+      const w = widthMap.get(t.id) || estimateTileWidth(t.word);
+      return t.x < 6 || t.y < 6 || (t.x + w > maxRight);
+    });
+
+    if (!hasOutOfBounds) return;
+
+    // Group tiles by lineIdx and wrap any overflowing lines cleanly onto subsequent rows
+    const byLine = new Map();
+    state.boardTiles.forEach(t => {
+      const l = Math.max(0, t.lineIdx || 0);
+      if (!byLine.has(l)) byLine.set(l, []);
+      byLine.get(l).push(t);
+    });
+
+    const sortedLines = Array.from(byLine.keys()).sort((a, b) => a - b);
+    let extraLinesInserted = 0;
+
+    sortedLines.forEach(origLine => {
+      const tiles = byLine.get(origLine).sort((a, b) => a.x - b.x);
+      let targetLine = origLine + extraLinesInserted;
+
+      const lineOverflows = tiles.some((t, idx) => {
+        const w = widthMap.get(t.id) || estimateTileWidth(t.word);
+        if (t.x < 6 || t.y < 6 || t.x + w > maxRight) return true;
+        if (idx > 0) {
+          const prev = tiles[idx - 1];
+          const prevW = widthMap.get(prev.id) || estimateTileWidth(prev.word);
+          if (t.x < prev.x + prevW + 2) return true;
+        }
+        return false;
+      });
+
+      if (!lineOverflows) {
+        tiles.forEach(t => {
+          t.lineIdx = targetLine;
+          t.y = topOff + targetLine * lineH;
+        });
+      } else {
+        let curX = leftStart;
+        tiles.forEach((t, idx) => {
+          const w = widthMap.get(t.id) || estimateTileWidth(t.word);
+          if (idx > 0 && curX + w > maxRight) {
+            extraLinesInserted += 1;
+            targetLine += 1;
+            curX = leftStart;
+          }
+          t.x = Math.max(6, Math.min(curX, Math.max(6, maxRight - w)));
+          t.lineIdx = targetLine;
+          t.y = topOff + targetLine * lineH;
+          curX = t.x + w + gap;
+        });
+      }
+    });
+
+    // Sync updated coordinates back to live DOM tiles & line guides
+    state.boardTiles.forEach(t => {
+      const el = domMap.get(t.id);
+      if (el) {
+        el.style.left = `${t.x}px`;
+        el.style.top = `${t.y}px`;
+      }
+    });
+    renderLineGuides();
   }
 
   function deleteSingleBoardTile(tileId) {
@@ -696,8 +862,10 @@
           el.classList.add('dragging');
         }
         if (moved) {
-          tile.x = Math.max(8, origX + dx);
-          tile.y = Math.max(8, origY + dy);
+          const tileW = el.offsetWidth || estimateTileWidth(tile.word);
+          const maxDragX = Math.max(6, (elBoard.clientWidth || 320) - tileW - 8);
+          tile.x = Math.max(6, Math.min(origX + dx, maxDragX));
+          tile.y = Math.max(6, origY + dy);
           el.style.left = `${tile.x}px`;
           el.style.top = `${tile.y}px`;
 
@@ -707,11 +875,21 @@
         }
       };
 
-      const onUp = (ue) => {
+      const cleanupBoardDrag = () => {
         window.removeEventListener('pointermove', onMove);
         window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onCancel);
         el.classList.remove('dragging');
         clearFusionHighlights();
+      };
+
+      const onCancel = () => {
+        cleanupBoardDrag();
+        renderBoard();
+      };
+
+      const onUp = (ue) => {
+        cleanupBoardDrag();
 
         if (moved) {
           if (tile.isEnding) {
@@ -722,9 +900,11 @@
               return;
             }
           }
-          const snappedLine = Math.max(0, Math.round((tile.y - LINE_TOP_OFFSET) / LINE_HEIGHT));
+          const lineH = getLineHeight();
+          const topOff = getLineTopOffset();
+          const snappedLine = Math.max(0, Math.round((tile.y - topOff) / lineH));
           tile.lineIdx = snappedLine;
-          tile.y = LINE_TOP_OFFSET + snappedLine * LINE_HEIGHT;
+          tile.y = topOff + snappedLine * lineH;
           state.currentCursorLine = snappedLine;
 
           if (state.autoAgree) {
@@ -742,6 +922,7 @@
 
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onCancel);
     });
   }
 
@@ -749,18 +930,40 @@
     if (e.target.closest('.board-tile')) return;
     const rect = elBoard.getBoundingClientRect();
     const clickY = e.clientY - rect.top + elBoard.scrollTop;
-    state.currentCursorLine = Math.max(0, Math.round((clickY - LINE_TOP_OFFSET) / LINE_HEIGHT));
+    state.currentCursorLine = Math.max(0, Math.round((clickY - getLineTopOffset()) / getLineHeight()));
     state.selectedTileId = null;
     renderBoard();
     renderInspector();
     if (state.activeCategory === 'smart') renderWordBrowser();
   });
 
+  function setMobileActiveTab(tabName) {
+    state.mobileTab = tabName === 'inspector' ? 'inspector' : 'words';
+    if (elWorkspaceGrid) {
+      elWorkspaceGrid.classList.toggle('mob-view-inspector', state.mobileTab === 'inspector');
+    }
+    if (elBtnMobTabWords) {
+      elBtnMobTabWords.classList.toggle('active', state.mobileTab === 'words');
+    }
+    if (elBtnMobTabInspector) {
+      elBtnMobTabInspector.classList.toggle('active', state.mobileTab === 'inspector');
+    }
+  }
+
   // ==========================================================================
   // 3. INTERACTIVE WORD INSPECTOR
   // ==========================================================================
   function renderInspector() {
     const tile = state.boardTiles.find(t => t.id === state.selectedTileId);
+    if (elMobSelectedWordBadge) {
+      if (tile) {
+        elMobSelectedWordBadge.textContent = tile.word;
+        elMobSelectedWordBadge.classList.remove('hidden');
+      } else {
+        elMobSelectedWordBadge.classList.add('hidden');
+      }
+    }
+
     if (!tile) {
       elInspectorPlaceholder.classList.remove('hidden');
       elInspectorActive.classList.add('hidden');
@@ -961,7 +1164,17 @@
           el.classList.remove('speaking-highlight');
         });
         const domTile = elBoardTilesLayer.querySelector(`.board-tile[data-id="${tile.id}"]`);
-        if (domTile) domTile.classList.add('speaking-highlight');
+        if (domTile) {
+          domTile.classList.add('speaking-highlight');
+          // Keep the spoken word smoothly scrolled into view inside the board
+          const tileTop = tile.y;
+          const tileBottom = tile.y + (domTile.offsetHeight || 52);
+          if (tileTop < elBoard.scrollTop + 12) {
+            elBoard.scrollTo({ top: Math.max(0, tileTop - 16), behavior: 'smooth' });
+          } else if (tileBottom > elBoard.scrollTop + elBoard.clientHeight - 20) {
+            elBoard.scrollTo({ top: tileBottom - elBoard.clientHeight + 28, behavior: 'smooth' });
+          }
+        }
       },
       onDone: () => stopBoardPoemNarration()
     });
@@ -992,37 +1205,53 @@
     if (elPoemAuthorInput) elPoemAuthorInput.value = poem.poet || '';
 
     const linesToLoad = mode === 'short' ? poem.lines.slice(0, 4) : poem.lines;
+    const leftStart = getLineLeftStart();
+    const lineH = getLineHeight();
+    const topOff = getLineTopOffset();
+    const gap = getTileGap();
+    const maxRight = getBoardMaxRight();
 
-    linesToLoad.forEach((lineObj, lineIdx) => {
-      let curX = LINE_LEFT_START;
-      const curY = LINE_TOP_OFFSET + lineIdx * LINE_HEIGHT;
+    let visualLineIdx = 0;
+
+    linesToLoad.forEach((lineObj, pIdx) => {
+      let curX = leftStart;
 
       lineObj.words.forEach((w, wIdx) => {
+        const wWidth = estimateTileWidth(w);
+        // Wrap long poem lines onto the next row so no word EVER goes out of bounds!
+        if (wIdx > 0 && curX + wWidth > maxRight) {
+          visualLineIdx += 1;
+          curX = leftStart;
+        }
+
         const isLastWord = (wIdx === lineObj.words.length - 1);
         const baseW = (isLastWord && lineObj.base) ? lineObj.base : w;
         const endingW = (isLastWord && lineObj.endings && lineObj.endings.length > 0) ? lineObj.endings[0] : '';
 
         state.boardTiles.push({
-          id: `tile_${Date.now()}_${lineIdx}_${wIdx}_${Math.random().toString(36).slice(2, 5)}`,
+          id: `tile_${Date.now()}_${pIdx}_${wIdx}_${Math.random().toString(36).slice(2, 5)}`,
           word: w,
           baseWord: baseW,
           ending: endingW,
           category: inferCategory(w),
           isEnding: false,
           x: curX,
-          y: curY,
-          lineIdx,
+          y: topOff + visualLineIdx * lineH,
+          lineIdx: visualLineIdx,
           tilt: (Math.random() * 1.6 - 0.8).toFixed(2)
         });
 
-        curX += estimateTileWidth(w) + 12;
+        curX += wWidth + gap;
       });
+
+      visualLineIdx += 1;
     });
 
-    state.currentCursorLine = Math.max(0, linesToLoad.length - 1);
+    if (elBoard) elBoard.scrollTop = 0;
+    state.currentCursorLine = Math.max(0, visualLineIdx - 1);
 
-    // Auto-select a verb tile (or the last word of line 1) so the Top Word Magic Bar
-    // immediately displays Verb Forms, Suffix Endings, and Rhymes at eye level!
+    // Auto-select a verb tile (or the last word of line 1) so the Word Options pane
+    // immediately displays Verb Forms, Suffix Endings, and Rhymes!
     if (state.boardTiles.length > 0) {
       const verbTile = state.boardTiles.find(t => t.category === 'verbs' || Engine.SURFACE_TO_VERB_ROOT[t.word]);
       state.selectedTileId = (verbTile || state.boardTiles[state.boardTiles.length - 1]).id;
@@ -1037,16 +1266,28 @@
     if (state.boardTiles.length === 0) return;
     pushUndo();
     const lines = getStructuredPoemLinesFromBoard();
-    lines.forEach((lineObj, newLineIdx) => {
-      let curX = LINE_LEFT_START;
-      const curY = LINE_TOP_OFFSET + newLineIdx * LINE_HEIGHT;
-      lineObj.tiles.forEach(t => {
-        t.lineIdx = newLineIdx;
+    const leftStart = getLineLeftStart();
+    const lineH = getLineHeight();
+    const topOff = getLineTopOffset();
+    const gap = getTileGap();
+    const maxRight = getBoardMaxRight();
+
+    let visualLineIdx = 0;
+    lines.forEach((lineObj) => {
+      let curX = leftStart;
+      lineObj.tiles.forEach((t, idx) => {
+        const wWidth = estimateTileWidth(t.word);
+        if (idx > 0 && curX + wWidth > maxRight) {
+          visualLineIdx += 1;
+          curX = leftStart;
+        }
+        t.lineIdx = visualLineIdx;
         t.x = curX;
-        t.y = curY;
+        t.y = topOff + visualLineIdx * lineH;
         t.tilt = '0';
-        curX += estimateTileWidth(t.word) + 12;
+        curX += wWidth + gap;
       });
+      visualLineIdx += 1;
     });
     renderBoard();
     showToast('📏 সব শব্দ লাইনে সুন্দর করে সাজানো হয়েছে!');
@@ -1593,9 +1834,31 @@
       const lastTile = state.boardTiles[state.boardTiles.length - 1];
       state.selectedTileId = lastTile.id;
       state.inspectorTab = 'rhyme';
+      setMobileActiveTab('inspector');
       renderBoard();
       renderInspector();
     });
+
+    if (elBtnMobTabWords) {
+      elBtnMobTabWords.addEventListener('click', () => setMobileActiveTab('words'));
+    }
+    if (elBtnMobTabInspector) {
+      elBtnMobTabInspector.addEventListener('click', () => setMobileActiveTab('inspector'));
+    }
+
+    let resizeTimer = null;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        renderBoard();
+      }, 120);
+    });
+
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => {
+        ensureAllBoardTilesInBounds();
+      });
+    }
 
     document.getElementById('btnOpenTemplates').addEventListener('click', () => {
       renderTemplatesModal();
