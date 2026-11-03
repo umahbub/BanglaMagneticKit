@@ -5,8 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <!-- Strip Referer header so cloud Bangla TTS audio streams work reliably on GitHub Pages -->
   <meta name="referrer" content="no-referrer" />
-  <title>ছড়ার চুম্বক | Bangla Magnetic Word Kit for Kids</title>
-  <meta name="description" content="Kid-friendly Bangla Magnetic Poetry Kit — Click-only navigation, smart word suggestions, verb form changer, rhyme finder, and clear Bangla audio!" />
+  <title>ছড়ার চুম্বক | Bangla Magnetic Word Kit by Toroni LLC</title>
+  <meta name="description" content="ছড়ার চুম্বক (Chhorar Chumbok) by Toroni LLC — Kid-friendly Bangla Magnetic Poetry Kit with smart word suggestions, verb conjugations, rhyme finder, and clear Bangla audio!" />
+  <meta name="author" content="Toroni LLC (toronillc.com)" />
+  <meta property="og:title" content="ছড়ার চুম্বক | Bangla Magnetic Word Kit by Toroni LLC" />
+  <meta property="og:description" content="Interactive Bangla Magnetic Poetry Kit for Kids — Create, listen to, and share colorful Bangla rhymes! A Toroni LLC creation (toronillc.com)." />
+  <meta property="og:image" content="assets/toroni-logo.png" />
+  <meta property="og:site_name" content="Toroni LLC" />
+  <link rel="icon" type="image/png" href="assets/favicon.png" />
+  <link rel="apple-touch-icon" href="assets/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Baloo+Da+2:wght@500;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -17,9 +24,17 @@
   <!-- Compact Top Header -->
   <header class="app-header">
     <div class="logo-magnet">
-      <span class="logo-emoji">🧲</span>
+      <button type="button" id="btnHeaderBrandLogo" class="toroni-logo-badge" title="A Toroni LLC Creation (toronillc.com) — Click for Parent & Teacher Hub">
+        <img src="assets/toroni-logo.png" alt="Toroni LLC Logo" class="header-toroni-img" />
+      </button>
       <div class="logo-texts">
-        <h1>ছড়ার চুম্বক <span class="brand-en">Bangla Word Kit</span></h1>
+        <h1>
+          ছড়ার চুম্বক
+          <span class="brand-en">Bangla Word Kit</span>
+        </h1>
+        <button type="button" id="btnHeaderByToroni" class="by-toroni-tag" title="Visit Toroni Parent & Teacher Hub">
+          by <strong>TORONI</strong> • toronillc.com
+        </button>
       </div>
     </div>
 
@@ -34,6 +49,10 @@
 
       <button id="btnOpenSavedPoems" class="btn-action btn-saved" title="Save or load your poems">
         <span>💾</span> <span class="hide-on-mobile">আমার </span>খাতা (<span id="savedPoemsCount">0</span>)
+      </button>
+
+      <button id="btnOpenToroniHub" class="btn-action btn-toroni-hub" title="Toroni LLC — For Parents, Printables & Teachers">
+        <span>⛵</span> তরণী <span class="hide-on-mobile">(Parents)</span>
       </button>
 
       <div class="more-menu-wrap">
@@ -200,6 +219,7 @@
           <button id="btnUndo" class="btn-tool" title="আগের ধাপ (Undo)">↩️ <span class="hide-on-mobile">Undo</span></button>
           <button id="btnDeleteSelectedWord" class="btn-tool btn-delete-one" title="নির্বাচিত বা শেষের শব্দটি মুছুন (Delete selected or last word)">⌫ শব্দ মুছুন</button>
           <button id="btnSavePoem" class="btn-tool" title="খাতায় সেভ করো (Save Poem)">💾 সেভ</button>
+          <button id="btnToolbarExportCard" class="btn-tool btn-share-card" title="ছড়ার রঙিন পোস্টার ছবি ডাউনলোড ও শেয়ার করো (Download Poem Card)">📸 ছবি</button>
           <button id="btnClearBoard" class="btn-tool btn-danger" title="পুরো বোর্ড খালি করো (Clear entire board)">🧹 সব মুছুন</button>
         </div>
       </div>
@@ -424,7 +444,87 @@
     </div>
   </div>
 
+  <!-- MODAL 4: Toroni LLC — Parent, Printable & Teacher Hub -->
+  <div id="modalToroniHub" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="modal-card modal-large">
+      <div class="modal-header toroni-modal-header">
+        <div class="toroni-hub-brand-row">
+          <img src="assets/toroni-logo.png" alt="Toroni LLC" class="toroni-hub-logo" />
+          <div>
+            <h2>তরণী অভিভাবক ও শিক্ষক কর্নার (Toroni Parent &amp; Teacher Hub)</h2>
+            <p class="modal-sub">A Creative Cultural &amp; Educational Initiative by <strong>Toroni LLC</strong> (toronillc.com)</p>
+          </div>
+        </div>
+        <button class="btn-close-modal" data-close="modalToroniHub">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Child-Safe Parent Gate Prompt (Appears briefly before opening external links) -->
+        <div id="parentGateBox" class="parent-gate-box hidden">
+          <div class="gate-title">🔒 অভিভাবক যাচাই (Quick Parent Check)</div>
+          <p class="gate-desc">বাইরের ওয়েবসাইটে যাওয়ার আগে উত্তরটি লিখুন — Please solve to open <strong id="parentGateTargetLabel">toronillc.com</strong>:</p>
+          <form id="formParentGate" class="gate-form">
+            <span id="parentGateQuestion" class="gate-math">4 + 3 = ?</span>
+            <input type="number" id="parentGateInput" class="gate-input" placeholder="?" required autocomplete="off" />
+            <button type="submit" class="btn-primary-glow" style="padding:7px 16px; font-size:0.9rem;">খুলুন (Continue ➔)</button>
+            <button type="button" id="btnCancelParentGate" class="btn-mini" style="flex:0 0 auto; padding:7px 12px;">বাতিল</button>
+          </form>
+        </div>
+
+        <!-- Publisher Spotlight Banner -->
+        <div class="toroni-hero-banner">
+          <div class="toroni-hero-text">
+            <h3>⛵ বাংলা ভাষা, গল্প ও সৃজনশীলতার আনন্দ — Toroni LLC</h3>
+            <p>
+              <strong>ছড়ার চুম্বক (Chhorar Chumbok)</strong> শিশুদের খেলার ছলে বাংলা শব্দ, ছন্দ ও বাক্য গঠনের আনন্দ দিতে তৈরি করেছে <strong>Toroni LLC</strong>।
+              আমাদের ওয়েবসাইট <strong>toronillc.com</strong>-এ পাবেন ছোটদের বাংলা গল্প (Bangla Storytelling for Kids), আর্ট ও ক্রাফট টিউটোরিয়াল এবং সৃজনশীল উপকরণ!
+            </p>
+            <div class="toroni-hero-actions">
+              <button type="button" class="btn-primary-glow btn-ext-link" data-exturl="mainWebsite" data-label="toronillc.com">
+                🌐 Visit toronillc.com ➔
+              </button>
+              <button type="button" id="btnHubDownloadCard" class="btn-secondary-glow">
+                📸 ছড়ার রঙিন কার্ড ডাউনলোড করো (Share Poem Card)
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Offerings & Ecosystem Grid -->
+        <div class="toroni-cards-grid">
+          <div class="toroni-hub-card">
+            <div class="hub-card-badge">📖 Free on Toroni</div>
+            <h4>📚 ছোটদের বাংলা গল্প ও আর্ট-ক্রাফট</h4>
+            <p>Toroni LLC-এর বাংলা রূপকথা, শিক্ষামূলক গল্প (Bangla Storytelling) এবং ধাপে ধাপে ড্রয়িং ও পেপার ক্রাফট টিউটোরিয়াল দেখুন।</p>
+            <button type="button" class="btn-tpl-load btn-ext-link" data-exturl="banglaStories" data-label="Toroni Stories & Crafts">
+              🎨 গল্প ও ক্রাফট দেখুন (toronillc.com)
+            </button>
+          </div>
+
+          <div class="toroni-hub-card">
+            <div class="hub-card-badge badge-upcoming">🖨️ Printable &amp; Fridge Kit</div>
+            <h4>🧲 প্রিন্টেবল ও ফিজিক্যাল ম্যাগনেট কিট</h4>
+            <p>ঘরের ফ্রিজে বা বোর্ডে লাগানোর জন্য রঙিন প্রিন্টেবল বাংলা শব্দের শিট (PDF) এবং আসল ম্যাগনেটিক বক্স সেট শীঘ্রই আসছে!</p>
+            <button type="button" class="btn-tpl-speak btn-hub-printable" data-exturl="printableKitCheckout" data-label="Toroni Printable Magnet Kit">
+              ✨ বিস্তারিত দেখুন (Learn More)
+            </button>
+          </div>
+
+          <div class="toroni-hub-card">
+            <div class="hub-card-badge badge-school">🏫 Schools &amp; Communities</div>
+            <h4>🎓 বাংলা স্কুল ও শিক্ষক সংস্করণ</h4>
+            <p>প্রবাসের বাংলা স্কুল (Bangla Heritage Schools) ও সাংস্কৃতিক সংগঠনের ক্লাসরুমে ব্যবহারের জন্য বিশেষ ওয়ার্কশিট ও পার্টনারশিপ।</p>
+            <button type="button" class="btn-tpl-load btn-ext-link" data-exturl="schoolLicenseInquiry" data-label="Toroni School Partnership">
+              ✉️ যোগাযোগ করুন (toronillc.com)
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Scripts -->
+  <script src="js/brand_config.js"></script>
   <script src="js/words_data.js"></script>
   <script src="js/bangla_engine.js"></script>
   <script src="js/app.js"></script>

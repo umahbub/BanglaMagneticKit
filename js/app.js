@@ -6,6 +6,26 @@
 (function () {
   const DATA = window.BANGLA_KIT_DATA || { words: [], endings: [], poems: [] };
   const Engine = window.BanglaEngine;
+  const BRAND = window.TORONI_BRAND_CONFIG || {
+    companyName: 'Toroni LLC',
+    websiteUrl: 'https://toronillc.com',
+    websiteDisplay: 'toronillc.com',
+    logoDark: 'assets/toroni-logo.png',
+    logoLight: 'assets/toroni-logo-light.png',
+    exportFooterTaglineBn: 'ছড়ার চুম্বক • তৈরি করেছে তরণী (Toroni LLC)',
+    exportFooterUrl: 'toronillc.com',
+    links: { mainWebsite: 'https://toronillc.com' }
+  };
+
+  // Preload Toroni brand logos for branded PNG Poem Card export
+  const toroniLogoDarkImg = new Image();
+  toroniLogoDarkImg.src = BRAND.logoDark || 'assets/toroni-logo.png';
+  const toroniLogoLightImg = new Image();
+  toroniLogoLightImg.src = BRAND.logoLight || 'assets/toroni-logo-light.png';
+
+  let parentGateVerifiedSession = false;
+  let pendingParentGateAction = null;
+  let currentGateAnswer = 7;
 
   const wordMetaMap = new Map();
   DATA.words.forEach(item => wordMetaMap.set(item.w, item));
@@ -1384,8 +1404,34 @@
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
 
-    const width = 1000;
-    const height = Math.max(560, 180 + lines.length * 76);
+    const width = 1040;
+    const footerHeight = 96;
+
+    // Pre-calculate wrapped rows on the 1040px canvas so no tile ever clips on export
+    const exportRows = [];
+    lines.forEach(lineObj => {
+      let curX = 56;
+      let currentRow = [];
+      lineObj.tiles.forEach((t, idx) => {
+        ctx.font = 'bold 24px "Baloo Da 2", "Hind Siliguri", sans-serif';
+        const bnW = ctx.measureText(t.word).width;
+        const ph = Engine.transliterate(t.word);
+        ctx.font = '500 13px "Fredoka", sans-serif';
+        const phW = state.showPhonetics ? ctx.measureText(ph).width : 0;
+        const boxW = Math.max(bnW, phW) + 28;
+        if (idx > 0 && curX + boxW > width - 56) {
+          exportRows.push(currentRow);
+          currentRow = [];
+          curX = 56;
+        }
+        currentRow.push({ tile: t, ph, boxW });
+        curX += boxW + 12;
+      });
+      if (currentRow.length > 0) exportRows.push(currentRow);
+    });
+
+    const contentHeight = Math.max(380, 130 + exportRows.length * 72 + 28);
+    const height = contentHeight + footerHeight;
     canvas.width = width;
     canvas.height = height;
 
@@ -1407,10 +1453,20 @@
     ctx.fillRect(0, 0, width, height);
 
     const isDark = state.boardTheme === 'theme-sky';
+
+    // Decorative outer card border
+    ctx.strokeStyle = isDark ? 'rgba(165, 180, 252, 0.35)' : 'rgba(99, 102, 241, 0.25)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.roundRect(18, 18, width - 36, height - 36, 22);
+    ctx.stroke();
+
+    // Header Title
     ctx.fillStyle = isDark ? '#fde047' : '#312e81';
-    ctx.font = 'bold 34px "Baloo Da 2", "Hind Siliguri", sans-serif';
+    ctx.font = 'bold 32px "Baloo Da 2", "Hind Siliguri", sans-serif';
+    const firstLineText = (lines[0] && lines[0].text) ? lines[0].text.slice(0, 26) : 'আমার বাংলা ছড়া';
     const title = (elPoemTitleInput && elPoemTitleInput.value.trim()) || 'আমার বাংলা ছড়া';
-    ctx.fillText(`🧲 ${title}`, 48, 72);
+    ctx.fillText(`🧲 ${title}`, 52, 72);
 
     const catColors = {
       pronoun_people: { bg: '#fff1f2', border: '#f43f5e', text: '#881337' },
@@ -1420,21 +1476,15 @@
       adjectives: { bg: '#f5f3ff', border: '#8b5cf6', text: '#4c1d95' },
       rhythm: { bg: '#fdf2f8', border: '#ec4899', text: '#831843' },
       objects_food: { bg: '#fff7ed', border: '#f97316', text: '#7c2d92' },
+      endings: { bg: '#fef3c7', border: '#d97706', text: '#78350f' },
       general: { bg: '#ffffff', border: '#64748b', text: '#1e293b' }
     };
 
-    lines.forEach((lineObj, idx) => {
-      let curX = 52;
-      const curY = 120 + idx * 72;
+    exportRows.forEach((rowItems, idx) => {
+      let curX = 56;
+      const curY = 114 + idx * 72;
 
-      lineObj.tiles.forEach(t => {
-        ctx.font = 'bold 24px "Baloo Da 2", "Hind Siliguri", sans-serif';
-        const bnWidth = ctx.measureText(t.word).width;
-        const ph = Engine.transliterate(t.word);
-        ctx.font = '500 13px "Fredoka", sans-serif';
-        const phWidth = state.showPhonetics ? ctx.measureText(ph).width : 0;
-
-        const boxW = Math.max(bnWidth, phWidth) + 28;
+      rowItems.forEach(({ tile: t, ph, boxW }) => {
         const boxH = state.showPhonetics ? 54 : 42;
         const col = catColors[t.category] || catColors.general;
 
@@ -1467,11 +1517,67 @@
       });
     });
 
+    // =========================================================================
+    // TORONI LLC BRANDED VIRAL FOOTER WATERMARK
+    // =========================================================================
+    const footerTop = height - footerHeight;
+    ctx.fillStyle = isDark ? 'rgba(15, 23, 42, 0.72)' : 'rgba(255, 255, 255, 0.82)';
+    ctx.beginPath();
+    ctx.roundRect(22, footerTop, width - 44, footerHeight - 20, [0, 0, 18, 18]);
+    ctx.fill();
+
+    // Subtle divider line above footer
+    ctx.strokeStyle = isDark ? 'rgba(148, 163, 184, 0.28)' : 'rgba(99, 102, 241, 0.2)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(44, footerTop);
+    ctx.lineTo(width - 44, footerTop);
+    ctx.stroke();
+
+    // Draw Toroni Sailboat Logo on left of footer
+    const logoImg = isDark ? toroniLogoLightImg : toroniLogoDarkImg;
+    let textStartX = 52;
+    if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
+      const logoH = 56;
+      const logoW = Math.round(logoImg.naturalWidth * (logoH / logoImg.naturalHeight));
+      ctx.drawImage(logoImg, 48, footerTop + 11, logoW, logoH);
+      textStartX = 48 + logoW + 16;
+    }
+
+    // Tagline next to Toroni Logo
+    ctx.fillStyle = isDark ? '#f8fafc' : '#1e1b4b';
+    ctx.font = 'bold 20px "Baloo Da 2", "Hind Siliguri", sans-serif';
+    ctx.fillText(BRAND.exportFooterTaglineBn || 'ছড়ার চুম্বক • Toroni LLC', textStartX, footerTop + 34);
+
+    ctx.fillStyle = isDark ? '#cbd5e1' : '#475569';
+    ctx.font = '500 14px "Fredoka", sans-serif';
+    ctx.fillText('Interactive Bangla Magnetic Word Kit for Kids — Create & listen online!', textStartX, footerTop + 56);
+
+    // Website Pill on Right (toronillc.com)
+    const siteLabel = `🌐 ${BRAND.exportFooterUrl || 'toronillc.com'}`;
+    ctx.font = 'bold 17px "Fredoka", sans-serif';
+    const pillTextW = ctx.measureText(siteLabel).width;
+    const pillW = pillTextW + 34;
+    const pillH = 38;
+    const pillX = width - 48 - pillW;
+    const pillY = footerTop + 20;
+
+    ctx.fillStyle = isDark ? '#4f46e5' : '#312e81';
+    ctx.beginPath();
+    ctx.roundRect(pillX, pillY, pillW, pillH, 19);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.fillText(siteLabel, pillX + pillW / 2, pillY + 25);
+    ctx.textAlign = 'left';
+
+    const safeFileName = firstLineText.replace(/[^\u0980-\u09FFa-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '') || 'bangla_chhora';
     const link = document.createElement('a');
-    link.download = `${title.replace(/\s+/g, '_')}.png`;
+    link.download = `Toroni_${safeFileName}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
-    showToast('📸 ছড়ার রঙিন ছবি ডাউনলোড হয়েছে!');
+    showToast('📸 Toroni ব্র্যান্ডেড ছড়ার কার্ড ডাউনলোড হয়েছে!');
   }
 
   function renderTemplatesModal() {
@@ -1755,6 +1861,11 @@
       exportPoemAsImage();
     });
 
+    const btnToolbarExportCard = document.getElementById('btnToolbarExportCard');
+    if (btnToolbarExportCard) {
+      btnToolbarExportCard.addEventListener('click', exportPoemAsImage);
+    }
+
     document.getElementById('btnClearBoard').addEventListener('click', () => {
       if (state.boardTiles.length === 0) return;
       if (state.boardTiles.length > 1) {
@@ -1872,6 +1983,105 @@
       btnSaved.addEventListener('click', () => {
         renderSavedPoemsModal();
         document.getElementById('modalSavedPoems').classList.remove('hidden');
+      });
+    }
+
+    // =========================================================================
+    // TORONI LLC — PARENT & TEACHER HUB + CHILD-SAFE PARENT GATE
+    // =========================================================================
+    const modalToroniHub = document.getElementById('modalToroniHub');
+    const parentGateBox = document.getElementById('parentGateBox');
+    const parentGateQuestion = document.getElementById('parentGateQuestion');
+    const parentGateInput = document.getElementById('parentGateInput');
+    const parentGateTargetLabel = document.getElementById('parentGateTargetLabel');
+    const formParentGate = document.getElementById('formParentGate');
+    const btnCancelParentGate = document.getElementById('btnCancelParentGate');
+
+    function openToroniHubModal() {
+      if (!modalToroniHub) return;
+      if (parentGateBox) parentGateBox.classList.add('hidden');
+      modalToroniHub.classList.remove('hidden');
+    }
+
+    function openExternalWithParentGate(url, labelText) {
+      if (!url) return;
+      if (parentGateVerifiedSession) {
+        window.open(url, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      const a = Math.floor(Math.random() * 5) + 3; // 3..7
+      const b = Math.floor(Math.random() * 5) + 2; // 2..6
+      currentGateAnswer = a + b;
+      pendingParentGateAction = () => {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      };
+      if (parentGateQuestion) parentGateQuestion.textContent = `${a} + ${b} = ?`;
+      if (parentGateTargetLabel) parentGateTargetLabel.textContent = labelText || BRAND.websiteDisplay;
+      if (parentGateInput) parentGateInput.value = '';
+      if (parentGateBox) {
+        parentGateBox.classList.remove('hidden');
+        if (parentGateInput) parentGateInput.focus();
+      }
+    }
+
+    ['btnHeaderBrandLogo', 'btnHeaderByToroni', 'btnOpenToroniHub'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('click', openToroniHubModal);
+    });
+
+    const btnHubDownloadCard = document.getElementById('btnHubDownloadCard');
+    if (btnHubDownloadCard) {
+      btnHubDownloadCard.addEventListener('click', () => {
+        if (modalToroniHub) modalToroniHub.classList.add('hidden');
+        exportPoemAsImage();
+      });
+    }
+
+    document.querySelectorAll('.btn-ext-link').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.exturl;
+        const url = (BRAND.links && BRAND.links[key]) || BRAND.websiteUrl || 'https://toronillc.com';
+        const label = btn.dataset.label || BRAND.websiteDisplay || 'toronillc.com';
+        openExternalWithParentGate(url, label);
+      });
+    });
+
+    document.querySelectorAll('.btn-hub-printable').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const checkoutUrl = BRAND.links && BRAND.links.printableKitCheckout;
+        if (checkoutUrl) {
+          openExternalWithParentGate(checkoutUrl, 'Toroni Printable Magnet Kit');
+        } else {
+          showToast('🖨️ প্রিন্টেবল ম্যাগনেট শিট শীঘ্রই আসছে! আপাতত toronillc.com দেখুন।', 3400);
+          openExternalWithParentGate(BRAND.websiteUrl || 'https://toronillc.com', 'toronillc.com');
+        }
+      });
+    });
+
+    if (formParentGate) {
+      formParentGate.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const val = parseInt(parentGateInput.value, 10);
+        if (val === currentGateAnswer) {
+          parentGateVerifiedSession = true;
+          parentGateBox.classList.add('hidden');
+          if (typeof pendingParentGateAction === 'function') {
+            const fn = pendingParentGateAction;
+            pendingParentGateAction = null;
+            fn();
+          }
+        } else {
+          parentGateInput.value = '';
+          parentGateInput.placeholder = 'আবার চেষ্টা করুন';
+          parentGateInput.focus();
+        }
+      });
+    }
+
+    if (btnCancelParentGate) {
+      btnCancelParentGate.addEventListener('click', () => {
+        pendingParentGateAction = null;
+        if (parentGateBox) parentGateBox.classList.add('hidden');
       });
     }
 
